@@ -1,78 +1,67 @@
 # NOTE2
 
-NOTE2 is the new canonical repository for a **universal media and knowledge analyzer**.
+NOTE2 is the dedicated repository for the NoteAI project developed in this chat.
 
-The product accepts files and URLs — video, YouTube, Instagram/social sources, audio, PDF, office documents, books, images and web pages — and turns them into reusable, evidence-backed analysis instead of a single generic summary.
+## Verified source of truth
 
-## Product goals
+The project source is **NoteAI**, not `BlockNoteAI` / Shadow Knowledge AI.
 
-For the same source NOTE2 should support:
+The latest recovered project package from this chat is:
 
-- quick summary;
-- full professional analysis;
-- simplified explanation;
-- expanded/contextualized explanation;
-- claim verification;
-- decisions, tasks, risks, people, entities, dates and metrics;
-- timeline/page/chapter navigation;
-- semantic search and Ask NOTE2;
-- comparison across multiple sources.
+- `NoteAI-v3.7-build-candidate.zip`
+- package name: `noteai-v3`
+- package version: `3.6.0`
+- frontend: React 19 + Vite 8
+- local-first data layer: IndexedDB Source Vault + local workspace/settings storage
+- gateway/runtime: Node.js `server.mjs`
+- multimodal ingestion: PDF, Office/archive formats, EPUB, images/OCR, audio/video transcription, URLs and YouTube captions
+- retrieval: lexical/vector RAG with source locators and clickable evidence
+- large media: resumable upload + FFmpeg segmentation + durable single-node queue
+- account/device sessions and checkpoint sync
+- deployment: Docker + Render profile
+- Android: Capacitor 8 preparation path
 
-## Core architecture
+No other GitHub repository is considered part of NOTE2 unless its provenance is explicitly verified against this project.
 
-The current proven stack remains the foundation:
+## Project boundary rule
 
-- Next.js App Router + TypeScript;
-- Auth.js + Prisma;
-- PostgreSQL + pgvector;
-- Redis + BullMQ;
-- S3/R2-compatible object storage;
-- provider adapters for transcription, extraction, vision and reasoning;
-- PWA first, verified TWA for Android.
+Before any external repository, branch or codebase may be imported, all of these must be verified:
 
-We intentionally avoid a second auth system, duplicate queue stack or separate mobile backend.
+1. exact repository identity;
+2. branch identity;
+3. README/package/runtime stack;
+4. commit ancestry or explicit user confirmation;
+5. feature ownership relative to NOTE2;
+6. no destructive mirror/push operation across unrelated repositories.
 
-## Architecture documents
+Similarity of topic, naming or technology is **not** evidence of project identity.
 
-- [`docs/PRODUCT_ARCHITECTURE.md`](docs/PRODUCT_ARCHITECTURE.md) — product definition, layers and phased evolution.
-- [`docs/SOURCE_ADAPTERS.md`](docs/SOURCE_ADAPTERS.md) — universal ingestion/adaptation contract.
-- Draft PR #1 adds:
-  - `docs/ANALYSIS_GRAPH.md`;
-  - `docs/RESULT_WORKSPACE.md`;
-  - `docs/IMPLEMENTATION_PLAN.md`.
+See [`docs/PROJECT_BOUNDARY.md`](docs/PROJECT_BOUNDARY.md).
 
-## Repository migration
+## Product direction
 
-The previous development repository is `loftfull/BlockNoteAI`.
+NOTE2 remains a universal local-first evidence notebook and media/document analyzer:
 
-Because NOTE2 was created as an independent repository, preserving all Git history requires a mirror push from a machine authenticated to GitHub.
+- notes and documents;
+- PDF and scanned PDF;
+- DOCX / PPTX / XLSX / ODT / ODS / ODP;
+- EPUB;
+- images and OCR/vision;
+- audio/video transcription with timestamps/speakers;
+- YouTube captions when genuinely available;
+- URL ingestion with SSRF protection;
+- grounded analysis and evidence citations;
+- reusable Source Vault and search;
+- Android/PWA/mobile delivery.
 
-### Windows
+## Current repository state
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/migrate-full-history.ps1
-```
+This repository currently contains architecture/bootstrap documentation only. The verified NoteAI v3.7 build-candidate source must be imported here directly from the recovered project package, not from another GitHub project.
 
-### macOS / Linux
-
-```bash
-bash scripts/migrate-full-history.sh
-```
-
-The scripts perform `git clone --mirror` from `loftfull/BlockNoteAI` and `git push --mirror` into `loftfull/NOTE2`, preserving branches, tags and commit history.
-
-Important source branches to verify after migration:
-
-- `claude/shadow-knowledge-ai-OgOPz`;
-- `chatgpt/resumable-mobile-hardening`;
-- `chatgpt/mobile-pwa-shell`.
-
-After the mirror, recreate/retarget the draft PRs inside NOTE2, run hosted CI or `npm run ci:local`, and only then consolidate the hardening + mobile stacks.
+The former cross-project mirror scripts have been removed.
 
 ## Next implementation step
 
-After repository consolidation and a green build/smoke gate, the first code change is deliberately bounded:
-
-> Introduce a `SourceAdapter` registry around the **existing local-file and YouTube ingestion** without changing the persistence schema or adding new downloader/provider dependencies.
-
-This gives NOTE2 the universal-source architecture without a risky big-bang rewrite.
+1. Import the verified NoteAI v3.7 build-candidate snapshot into NOTE2.
+2. Run its existing regression suite and build gates.
+3. Only after the baseline is reproduced, continue with the universal `SourceAdapter`/analysis-graph evolution.
