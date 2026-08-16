@@ -5,8 +5,6 @@ param(
   [string]$ZipPath
 )
 
-$ExpectedRepo = 'loftfull/NOTE2'
-$ExpectedHash = 'faf8695578a1fc613e63325001dafbfcdb02c1f9b565c4692e027e2799ec0bee'
 $ImportBranch = 'import/noteai-v3.7-verified'
 
 function Fail([string]$Message) {
@@ -21,6 +19,23 @@ $RepoRoot = (git rev-parse --show-toplevel 2>$null)
 if (-not $RepoRoot) { Fail 'Run this script from inside the NOTE2 Git checkout.' }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
 Set-Location $RepoRoot
+
+$LockPath = Join-Path $RepoRoot 'note2-source.lock.json'
+if (-not (Test-Path -LiteralPath $LockPath -PathType Leaf)) { Fail 'Missing note2-source.lock.json; provenance cannot be verified.' }
+$Lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
+if ($Lock.schemaVersion -ne 1) { Fail "Unsupported source-lock schema version '$($Lock.schemaVersion)'." }
+if (-not $Lock.rules.requireExactArtifactHash -or -not $Lock.rules.requireDedicatedImportBranch) { Fail 'Source-lock safety rules are unexpectedly disabled.' }
+if ($Lock.rules.allowMirrorPush -or $Lock.rules.allowCrossRepositoryForcePush) { Fail 'Source-lock permits destructive cross-repository operations; refusing import.' }
+
+$ExpectedRepo = [string]$Lock.project.repository
+$ExpectedHash = ([string]$Lock.verifiedSource.sha256).ToLowerInvariant()
+$ExpectedPackage = [string]$Lock.verifiedSource.packageName
+$ExpectedTests = [int]$Lock.verifiedSource.expectedRegressionTests
+$Required = @($Lock.verifiedSource.requiredFiles | ForEach-Object { [string]$_ })
+
+if ($ExpectedRepo -ne 'loftfull/NOTE2') { Fail "Unexpected locked repository '$ExpectedRepo'." }
+if ($ExpectedHash -notmatch '^[a-f0-9]{64}$') { Fail 'Invalid locked SHA-256.' }
+if ($Required.Count -lt 1) { Fail 'Source lock has no required-file fingerprint.' }
 
 $Origin = (git remote get-url origin).Trim()
 $OriginNormalized = $Origin -replace '^git@github.com:', 'https://github.com/' -replace '\.git$', ''
@@ -54,16 +69,6 @@ try {
   New-Item -ItemType Directory -Path $Temp | Out-Null
   Expand-Archive -LiteralPath $ZipPath -DestinationPath $Temp -Force
 
-  $Required = @(
-    'package.json',
-    'vite.config.js',
-    'server.mjs',
-    'src/App.jsx',
-    'src/source-db.js',
-    'src/rag.js',
-    'native/android/SecureCredentialsPlugin.java',
-    'test/secure-credentials.test.mjs'
-  )
   foreach ($Relative in $Required) {
     if (-not (Test-Path -LiteralPath (Join-Path $Temp $Relative) -PathType Leaf)) {
       Fail "Verified archive is incomplete: missing $Relative"
@@ -71,18 +76,18 @@ try {
   }
 
   $Package = Get-Content -Raw -LiteralPath (Join-Path $Temp 'package.json') | ConvertFrom-Json
-  if ($Package.name -ne 'noteai-v3') { Fail "Unexpected package identity '$($Package.name)'." }
+  if ($Package.name -ne $ExpectedPackage) { Fail "Unexpected package identity '$($Package.name)', expected '$ExpectedPackage'." }
   if ($Package.type -ne 'module') { Fail "Unexpected package type '$($Package.type)'." }
 
   git switch -c $ImportBranch main
 
-  # Keep NOTE2's canonical root README and provenance rules. Preserve the source README under history.
+  # Keep NOTE2 canonical root documentation. Preserve the imported source README as evidence/history.
   $HistoryDir = Join-Path $RepoRoot 'docs/history'
   New-Item -ItemType Directory -Force -Path $HistoryDir | Out-Null
   Copy-Item -LiteralPath (Join-Path $Temp 'README.md') -Destination (Join-Path $HistoryDir 'NOTEAI-v3.7-README.md') -Force
   Remove-Item -LiteralPath (Join-Path $Temp 'README.md') -Force
 
-  # Copy only the verified NoteAI snapshot into this NOTE2 checkout. No other repository is read or written.
+  # Copy only the exact verified NoteAI artifact into NOTE2. No other repository is read or written.
   Get-ChildItem -LiteralPath $Temp -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $RepoRoot -Recurse -Force
   }
@@ -90,24 +95,31 @@ try {
   $Provenance = @"
 # NOTE2 verified source import
 
-- Source: NoteAI v3.7 build-candidate recovered from the current NOTE2 chat/project line.
+- Source artifact: `$($Lock.verifiedSource.file)`
 - Source ZIP SHA-256: `$ExpectedHash`
 - Package identity at import: `$($Package.name)`
 - Package version at import: `$($Package.version)`
+- Expected regression tests from lock: `$ExpectedTests`
 - Imported branch: `$ImportBranch`
 - Cross-project source repositories: none.
-- `loftfull/BlockNoteAI`: explicitly excluded; independent project.
 
-The source archive was repaired only by restoring the missing Android Keystore bridge required by its own tests. Before import, `npm test` passed 39/39 in the verification environment.
+`loftfull/BlockNoteAI` is explicitly excluded by `note2-source.lock.json` and is an independent project.
 "@
   Set-Content -LiteralPath (Join-Path $RepoRoot 'docs/IMPORT_PROVENANCE.md') -Value $Provenance -Encoding UTF8
 
   Write-Host "`nRunning NOTE2 source verification tests before commit...`n"
-  npm test
-  if ($LASTEXITCODE -ne 0) { Fail 'npm test failed; import branch will not be pushed.' }
+  $TestOutput = npm test 2>&1
+  $TestExit = $LASTEXITCODE
+  $TestOutput | Write-Host
+  if ($TestExit -ne 0) { Fail 'npm test failed; import branch will not be pushed.' }
+  $PassMatches = [regex]::Matches(($TestOutput -join "`n"), '# pass\s+(\d+)')
+  if ($PassMatches.Count -gt 0) {
+    $Passed = [int]$PassMatches[$PassMatches.Count - 1].Groups[1].Value
+    if ($Passed -ne $ExpectedTests) { Fail "Regression count mismatch: passed $Passed; source lock expects $ExpectedTests." }
+  }
 
   git add --all
-  git commit -m 'import: verified NoteAI v3.7 source snapshot'
+  git commit -m 'import: verified NoteAI source snapshot'
   git push --set-upstream origin $ImportBranch
 
   Write-Host "`nVerified NoteAI import complete."
