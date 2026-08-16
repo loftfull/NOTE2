@@ -6,11 +6,12 @@ NOTE2 is the dedicated repository for the NoteAI project developed in this chat.
 
 The project source is **NoteAI**, not `BlockNoteAI` / Shadow Knowledge AI.
 
-The latest recovered project package from this chat is:
+The verified import package is:
 
-- `NoteAI-v3.7-build-candidate.zip`
+- `NoteAI-v3.7-verified-source.zip`
+- SHA-256: `faf8695578a1fc613e63325001dafbfcdb02c1f9b565c4692e027e2799ec0bee`
 - package name: `noteai-v3`
-- package version: `3.6.0`
+- package version reported by the source: `3.6.0`
 - frontend: React 19 + Vite 8
 - local-first data layer: IndexedDB Source Vault + local workspace/settings storage
 - gateway/runtime: Node.js `server.mjs`
@@ -19,7 +20,9 @@ The latest recovered project package from this chat is:
 - large media: resumable upload + FFmpeg segmentation + durable single-node queue
 - account/device sessions and checkpoint sync
 - deployment: Docker + Render profile
-- Android: Capacitor 8 preparation path
+- Android: Capacitor 8 preparation path + Android Keystore credential bridge
+
+The originally recovered `NoteAI-v3.7-build-candidate.zip` was not imported because verification exposed one missing source file: `native/android/SecureCredentialsPlugin.java`. The verified package restores that file and passes the existing regression suite **39/39** before import.
 
 No other GitHub repository is considered part of NOTE2 unless its provenance is explicitly verified against this project.
 
@@ -56,12 +59,19 @@ NOTE2 remains a universal local-first evidence notebook and media/document analy
 
 ## Current repository state
 
-This repository currently contains architecture/bootstrap documentation only. The verified NoteAI v3.7 build-candidate source must be imported here directly from the recovered project package, not from another GitHub project.
+`main` contains only the NOTE2 project boundary, architecture documents and the guarded verified-import tool. The application source is imported into a dedicated branch first; it is not copied from any other GitHub repository.
 
-The former cross-project mirror scripts have been removed.
+Safe import command after downloading the verified ZIP:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import-verified-noteai.ps1 -ZipPath "C:\path\to\NoteAI-v3.7-verified-source.zip"
+```
+
+The guard checks the exact ZIP SHA-256, exact `loftfull/NOTE2` origin, clean `main`, required source files and `npm test` before it creates/pushes `import/noteai-v3.7-verified`.
 
 ## Next implementation step
 
-1. Import the verified NoteAI v3.7 build-candidate snapshot into NOTE2.
-2. Run its existing regression suite and build gates.
-3. Only after the baseline is reproduced, continue with the universal `SourceAdapter`/analysis-graph evolution.
+1. Import the verified NoteAI snapshot into `import/noteai-v3.7-verified`.
+2. Re-run regression suite and build gates from that branch.
+3. Compare imported tree against the verified source manifest.
+4. Only after the baseline is reproduced, continue with bounded SourceAdapter / analysis-graph evolution.
