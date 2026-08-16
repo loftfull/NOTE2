@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repository": "loftfull/NOTE2",
+    "identity": "NoteAI universal local-first evidence notebook and media/document analyzer"
+  },
+  "verifiedSource": {
+    "kind": "chat-artifact",
+    "file": "NoteAI-v3.7-verified-source.zip",
+    "sha256": "faf8695578a1fc613e63325001dafbfcdb02c1f9b565c4692e027e2799ec0bee",
+    "packageName": "noteai-v3",
+    "packageVersion": "3.6.0",
+    "expectedRegressionTests": 39,
+    "requiredFiles": [
+      "package.json",
+      "vite.config.js",
+      "server.mjs",
+      "src/App.jsx",
+      "src/source-db.js",
+      "src/rag.js",
+      "native/android/SecureCredentialsPlugin.java",
+      "test/secure-credentials.test.mjs"
+    ]
+  },
+  "forbiddenWholesaleSources": [
+    {
+      "repository": "loftfull/BlockNoteAI",
+      "reason": "Independent Shadow Knowledge AI project; never use as NOTE2 source history or wholesale import."
+    }
+  ],
+  "rules": {
+    "allowMirrorPush": false,
+    "allowCrossRepositoryForcePush": false,
+    "requireExactArtifactHash": true,
+    "requireCleanWorkingTree": true,
+    "requireDedicatedImportBranch": true,
+    "requireRegressionGateBeforePush": true
+  }
+}
