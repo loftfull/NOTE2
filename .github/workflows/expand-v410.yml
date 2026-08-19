@@ -1,0 +1,66 @@
+name: Expand NOTE2 v4.10 source
+
+on:
+  push:
+    branches:
+      - release/v4.10-current
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  expand:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Locate and verify source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f NOTE2-v4.10-Home-Blocks-Hotfix-source.zip ]; then
+            cp NOTE2-v4.10-Home-Blocks-Hotfix-source.zip /tmp/note2-v410.zip
+          else
+            echo "Direct source archive is missing; refusing an incomplete expansion." >&2
+            exit 2
+          fi
+          echo "abb7fb93e76462983b6625d13f38b1ffb834f50670635e67985a19045fe1f2d2  /tmp/note2-v410.zip" | sha256sum -c -
+          rm -rf /tmp/note2-v410
+          mkdir -p /tmp/note2-v410
+          unzip -q /tmp/note2-v410.zip -d /tmp/note2-v410
+          test -f /tmp/note2-v410/note2_v410_work/src/App.jsx
+          test -f /tmp/note2-v410/note2_v410_work/package.json
+
+      - name: Replace release branch root with current source
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name .github -exec rm -rf {} +
+          cp -a /tmp/note2-v410/note2_v410_work/. .
+          rm -rf scripts/__pycache__
+          cat > CURRENT_VERSION.md <<'EOF'
+          # NOTE2 current release snapshot
+
+          Version: v4.10 Home Blocks Hotfix
+          Source archive SHA-256: abb7fb93e76462983b6625d13f38b1ffb834f50670635e67985a19045fe1f2d2
+          Local regression: 99/99 passed
+          Production Vite/Android/APK build: not verified in the source environment.
+          EOF
+
+      - name: Commit expanded source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "release: expand NOTE2 v4.10 current source"
+          git push origin HEAD:release/v4.10-current
