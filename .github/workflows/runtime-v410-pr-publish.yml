@@ -19,7 +19,7 @@ jobs:
 
       - name: Download and verify source
         env:
-          SOURCE_URL: "https://sdmntprwestus3.oaiusercontent.com/files/00000000-2a04-81fd-a077-1d1572a05c21/raw?se=2026-08-23T12%3A12%3A32Z&sp=r&sv=2026-02-06&sr=b&scid=53c745d2-b447-5fea-9b02-e9f4730cd768&skoid=2d2fbb03-9efb-4ad0-a91c-1db2f5a47997&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-22T13%3A49%3A37Z&ske=2026-08-23T13%3A49%3A37Z&sks=b&skv=2026-02-06&sig=IqMQvJgIIqadPwzJrJrvLz/mV2BDLkORBLv4xoMRHPA%3D"
+          SOURCE_URL: "https://sdmntprwestus3.oaiusercontent.com/files/00000000-2694-81fd-b96e-fddef3af564d/raw?se=2026-08-23T12%3A23%3A00Z&sp=r&sv=2026-02-06&sr=b&scid=c19fb0e8-f773-56eb-a828-b0e38dc3b712&skoid=2d2fbb03-9efb-4ad0-a91c-1db2f5a47997&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-22T23%3A34%3A32Z&ske=2026-08-23T23%3A34%3A32Z&sks=b&skv=2026-02-06&sig=DYHjGAgfGN%2B2RhE/vECQJdZgWtBvmco/X683B/Eq9iM%3D"
           EXPECTED_SHA: "abb7fb93e76462983b6625d13f38b1ffb834f50670635e67985a19045fe1f2d2"
         run: |
           set -euo pipefail
