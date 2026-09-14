@@ -1,0 +1,6 @@
+archive_sha256=b73ffe8c2d0a52a347d005936b8c5a2ccaea8b4ab884bfefc1b8fc9ae97efbfe
+archive_file=NOTE2-current-complete-audit-source-2026-09-14.tar.xz
+archive_base64_chars=253096
+source_file_count=159
+manifest_entries=158
+baseline_tests=176/176
