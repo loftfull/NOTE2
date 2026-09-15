@@ -3,7 +3,7 @@ const SETTINGS_KEY = 'noteai:v3:settings'
 
 export const defaultWorkspace = { notes: [], tasks: [], chats: [] }
 export const defaultSettings = {
-  style: 'grifel',
+  style: 'yasny',
   language: 'ru',
   fontScale: 'normal',
   density: 'compact',
