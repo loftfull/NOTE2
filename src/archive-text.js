@@ -32,10 +32,38 @@ export function listZipEntries(input) {
   return entries
 }
 
-async function inflateRaw(bytes) {
+// Hard ceiling on what a single entry may inflate to. A deflate stream can
+// expand by roughly 1000x, so a few-megabyte DOCX can otherwise claim gigabytes
+// and take the tab (and the user's unsaved editor state) down with it.
+export const MAX_ENTRY_BYTES = 64 * 1024 * 1024
+
+// Reads the decompressed stream in chunks and stops the moment the cap is
+// passed, instead of materialising the whole thing with arrayBuffer() and
+// discovering the size afterwards — by which point the memory is already gone.
+async function inflateRaw(bytes, { limit = MAX_ENTRY_BYTES, name = 'entry' } = {}) {
   if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot decompress Office/EPUB files locally')
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
-  return new Uint8Array(await new Response(stream).arrayBuffer())
+  const reader = stream.getReader()
+  const parts = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > limit) {
+        await reader.cancel()
+        throw new Error(`Entry ${name} expands beyond the ${Math.round(limit / 1024 / 1024)} MB decompression limit and was rejected.`)
+      }
+      parts.push(value)
+    }
+  } finally {
+    try { reader.releaseLock() } catch {}
+  }
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) { out.set(part, offset); offset += part.byteLength }
+  return out
 }
 
 export async function extractZipEntry(input, entry) {
@@ -50,7 +78,14 @@ export async function extractZipEntry(input, entry) {
   if (end > bytes.length) throw new Error(`Truncated ZIP entry: ${entry.name}`)
   const compressed = bytes.slice(start, end)
   if (entry.method === 0) return compressed
-  if (entry.method === 8) return inflateRaw(compressed)
+  if (entry.method === 8) {
+    // The central directory's declared size is untrusted input, so it caps the
+    // read only when it is smaller than the absolute ceiling — a lying header
+    // cannot raise the limit.
+    const declared = Number(entry.size)
+    const limit = Number.isFinite(declared) && declared > 0 ? Math.min(declared, MAX_ENTRY_BYTES) : MAX_ENTRY_BYTES
+    return inflateRaw(compressed, { limit, name: entry.name })
+  }
   throw new Error(`Unsupported ZIP compression method ${entry.method}`)
 }
 
