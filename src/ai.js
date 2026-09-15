@@ -1,4 +1,5 @@
 import { authenticatedFetch } from './api-session.js'
+import { resolveGatewayEndpoint } from './gateway-url.js'
 const STOP = new Set('the a an and or but of to in on for with from as is are was were be been being this that these those it its by at into about your you we our they their i me my have has had can could should would will may might not no do does did if then than also very more most some any all'.split(' '))
 
 export function tokenize(text) {
@@ -129,12 +130,19 @@ async function describeFailure(response) {
 export async function runAiTask({ endpoint, model, action, input, system, history, signal }) {
   if (!endpoint) return localResult(action, input)
 
+  // A relative endpoint is correct on the web and wrong in a native WebView,
+  // where it points at the app's own bundle. Refuse it before it reaches the
+  // network so the failure reads as configuration, not as a parse error.
+  const resolved = resolveGatewayEndpoint(endpoint)
+  if (resolved.error) return { text: '', origin: AI_ORIGIN.error, action, error: resolved.error }
+  const target = resolved.url || endpoint
+
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timer = controller ? setTimeout(() => controller.abort(), AI_TIMEOUT_MS) : null
   if (signal && controller) signal.addEventListener('abort', () => controller.abort(), { once: true })
 
   try {
-    const response = await authenticatedFetch(endpoint, {
+    const response = await authenticatedFetch(target, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, action, input, system, history }),
