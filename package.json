@@ -1,0 +1,30 @@
+{
+  "name": "noteai-v3",
+  "private": true,
+  "version": "3.6.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server.mjs",
+    "test": "node --test",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npm run build && npx cap run android",
+    "android:prepare": "node scripts/prepare-android.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "pdfjs-dist": "^5.7.284",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capgo/capacitor-share-target": "8.0.48"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.4",
+    "vite": "^8.1.0",
+    "@capacitor/cli": "^8.0.0"
+  }
+}
