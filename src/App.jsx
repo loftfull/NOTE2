@@ -2,8 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from './icons.jsx'
 import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
-import { AI_ORIGIN, aiResultText, runAiTask, semanticScore } from './ai.js'
+import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
+import { hasAiRoute, runTask } from './model-runtime.js'
 import { notesLabel } from './plural.js'
+import { Button, Card, Input, Textarea } from './ui.jsx'
+import ModelManager from './ModelManager.jsx'
+import { MODEL_ROLES, selectModel } from './models.js'
 import { chunkText, parseLocalFile } from './ingest.js'
 import { clearSourceDb, deleteSource, listChunks, listSources, replaceSourcesWithChunks, saveSourceWithChunks, updateSourceMetadata } from './source-db.js'
 import { buildEvidence, groundedPrompt, localGroundedAnswer, rankChunks } from './rag.js'
@@ -32,12 +36,6 @@ const NAV = [
 ]
 const MOBILE = NAV.map(item=>item[0])
 
-function Button({ children, icon, tone='primary', onClick, disabled=false, className='' }) {
-  return <button className={`btn ${tone} ${className}`} onClick={onClick} disabled={disabled}>{icon && <Icon name={icon} size={18}/>} {children}</button>
-}
-function Card({ children, className='' }) { return <section className={`card ${className}`}>{children}</section> }
-function Input(props) { return <input {...props} className={`input ${props.className || ''}`} /> }
-function Textarea(props) { return <textarea {...props} className={`textarea ${props.className || ''}`} /> }
 function formatDate(ts) { return new Date(ts).toLocaleDateString('ru-RU',{month:'short',day:'numeric'}) }
 function countWords(text='') { return (text.trim().match(/\S+/g)||[]).length }
 function stripMarkdown(text='') { return text.replace(/[#*_`>~-]/g,' ').replace(/\s+/g,' ').trim() }
@@ -167,7 +165,7 @@ function InstagramPostViewer({source,settings,onSourceUpdated,onBatchSourceUpdat
     if(!input){return}
     setAnalysisMode(mode);setAnalysisBusy(mode)
     try{
-      const result=await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:instagramAnalysisAction(mode),input,system:instagramAnalysisSystem(mode)})
+      const result=await runTask(settings,{action:instagramAnalysisAction(mode),input,system:instagramAnalysisSystem(mode)})
       await onInsightUpdated?.(mode,aiResultText(result))
     }finally{setAnalysisBusy('')}
   }
@@ -179,7 +177,7 @@ function InstagramPostViewer({source,settings,onSourceUpdated,onBatchSourceUpdat
       const input=instagramEvidenceDocument(source)
       if(input&&settings?.aiEndpoint){
         try{
-          const result=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:`instagram-structured-${fallback.type}`,input,system:structuredExtractionSystem(fallback.type)})
+          const result=await runTask(settings,{action:`instagram-structured-${fallback.type}`,input,system:structuredExtractionSystem(fallback.type)})
           const parsed=result.origin===AI_ORIGIN.model?parseStructuredKnowledgeOutput(result.text,null):null
           if(parsed)structured=normalizeStructuredKnowledge({...parsed,generatedBy:'ai'},source)
         }catch{}
@@ -322,7 +320,7 @@ function SourcePreview({selection,onClose,settings,onSourceUpdated,onBatchSource
   const evidence=sourceViewerEvidence(source)
   const description=sourceDescriptionText(source)||'Описание отсутствует.'
   const linkedNotes=(notes||[]).filter(note=>String(note.content||'').includes(`source:${source.id}`)||source.url&&String(note.content||'').includes(source.url))
-  const makeSummary=async()=>{const input=sourceViewerPrompt(source);if(!input)return;setSummaryBusy(true);try{const out=aiResultText(await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:'source-brief',input,system:'Сделай краткую выжимку только из предоставленных фрагментов. Пиши на русском. Для каждого существенного тезиса используй ссылки [S1], [S2] и т.д. Не добавляй внешние факты и не выдумывай содержимое отсутствующих фрагментов.'}));setSummary(out);await onSummaryUpdated?.(source,out)}finally{setSummaryBusy(false)}}
+  const makeSummary=async()=>{const input=sourceViewerPrompt(source);if(!input)return;setSummaryBusy(true);try{const out=aiResultText(await runTask(settings,{action:'source-brief',input,system:'Сделай краткую выжимку только из предоставленных фрагментов. Пиши на русском. Для каждого существенного тезиса используй ссылки [S1], [S2] и т.д. Не добавляй внешние факты и не выдумывай содержимое отсутствующих фрагментов.'}));setSummary(out);await onSummaryUpdated?.(source,out)}finally{setSummaryBusy(false)}}
   const openEvidence=item=>{setActiveLocator(item?.locator||null);setTab('text')}
   const renderMedia=()=>{
     if(provider==='instagram')return <InstagramSourceRenderer source={source} locator={activeLocator}/>
@@ -541,7 +539,7 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
   }
   const applyTemplate=(key)=>{if(content.trim()&&!confirm('Заменить текущий текст выбранным шаблоном?'))return;setContent(templates[key]||'')}
   const backlinks=workspace.notes.filter(n=>n.id!==editingId&&title.trim()&&n.content?.includes(`[[${title.trim()}]]`))
-  const ai=async action=>{setLoading(true);setAiOpen(true);setAiOut(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input:content,system:'Работай только с предоставленной заметкой. Сохраняй факты и явно отмечай неопределённость. Отвечай по-русски.'})));setLoading(false)}
+  const ai=async action=>{setLoading(true);setAiOpen(true);setAiOut(aiResultText(await runTask(settings,{action,input:content,system:'Работай только с предоставленной заметкой. Сохраняй факты и явно отмечай неопределённость. Отвечай по-русски.'})));setLoading(false)}
   return <div className="editor"><div className="editorTop"><button className="iconBtn" onClick={()=>navigate('library')} aria-label="Назад"><Icon name="arrow_back"/></button><input className="titleInput" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название заметки"/><span className="tiny subtle">{status}</span><button className={`iconBtn ${note.pinned?'isActive':''}`} onClick={()=>updateFlag('pinned')} aria-label="Закрепить"><Icon name="push_pin"/></button><button className={`iconBtn ${note.favorite?'isActive':''}`} onClick={()=>updateFlag('favorite')} aria-label="В избранное"><Icon name="star"/></button><button className="iconBtn" onClick={()=>setAiOpen(v=>!v)} aria-label="Инструменты AI"><Icon name="auto_awesome"/></button></div>
     <div className="editorCommandBar glass" aria-label="Инструменты заметки">
       <button onClick={()=>insertLine('# Заголовок')}><Icon name="title" size={20}/><span>Заголовок</span></button>
@@ -565,7 +563,7 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
 function Chat({settings}){
   const[role,setRole]=useState(expertRoles[0]);const[messages,setMessages]=useState([]);const[input,setInput]=useState('');const[loading,setLoading]=useState(false);const end=useRef(null)
   useEffect(()=>end.current?.scrollIntoView({behavior:'smooth'}),[messages,loading])
-  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'chat',input:q,system:role.system,history:next.slice(-10)}));setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
+  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=aiResultText(await runTask(settings,{action:'chat',input:q,system:role.system,history:next.slice(-10)}));setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
   return <div className="chatShell"><div className="roleBar"><div className="chips">{expertRoles.map(r=><button className={`chip ${role.id===r.id?'active':''}`} key={r.id} onClick={()=>setRole(r)}><Icon name={r.icon} size={15}/> {r.name}</button>)}</div></div><div className="messages">{!messages.length&&<div className="empty"><div className="metricIcon" style={{margin:'0 auto 10px'}}><Icon name={role.icon}/></div><strong>{role.name} workspace</strong><p className="small" style={{marginTop:5}}>Подключённый AI работает через ваш сервер. Без него NOTE2 продолжает работать в локальном режиме.</p></div>}{messages.map((m,i)=><div key={i} className={`bubble ${m.role==='user'?'user':'ai'}`}>{m.content}</div>)}{loading&&<div className="bubble ai">Думаю…</div>}<div ref={end}/></div><div className="composer"><Input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}} placeholder={`Спросить ${role.name}…`}/><Button icon="send" onClick={send} disabled={!input.trim()||loading}>Отправить</Button></div></div>
 }
 
@@ -807,7 +805,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
       if(!refs.length){setAnswer('No relevant evidence was found in the indexed sources.');return}
       const prompt=groundedPrompt(q,refs)
       if(settings.aiEndpoint){
-        const result=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
+        const result=await runTask(settings,{action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
         setAnswer(result.origin===AI_ORIGIN.model?result.text:`${aiResultText(result)}\n\n${localGroundedAnswer(q,refs)}`)
       }else setAnswer(localGroundedAnswer(q,refs))
     }catch(err){setAnswer(`Ошибка анализа: ${err.message}`)}finally{setBusy(false)}
@@ -836,7 +834,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
 
 function Studio({settings}){
   const[action,setAction]=useState('summarize');const[input,setInput]=useState('');const[out,setOut]=useState('');const[loading,setLoading]=useState(false);const tools=[['summarize','Summarize','summarize'],['keywords','Keywords','tag'],['improve','Clean up','auto_fix_high'],['title','Generate title','title']]
-  const run=async()=>{setLoading(true);setOut(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input,system:'Transform the supplied content without inventing facts.'})));setLoading(false)}
+  const run=async()=>{setLoading(true);setOut(aiResultText(await runTask(settings,{action,input,system:'Transform the supplied content without inventing facts.'})));setLoading(false)}
   return <div className="page"><h1 className="headline">Studio</h1><p className="subtle" style={{marginTop:5}}>Reusable transformations for notes and imported content.</p><div className="split" style={{marginTop:16}}>{tools.map(([id,label,icon])=><button key={id} className={`card ${action===id?'':''}`} style={{textAlign:'left',borderColor:action===id?'var(--brand)':'var(--line)'}} onClick={()=>setAction(id)}><div className="row gap12"><div className="metricIcon"><Icon name={icon}/></div><strong>{label}</strong></div></button>)}</div><Textarea style={{marginTop:14}} value={input} onChange={e=>setInput(e.target.value)} placeholder="Content…"/><div style={{marginTop:10}}><Button icon="auto_awesome" onClick={run} disabled={!input.trim()||loading}>{loading?'Working…':'Run'}</Button></div>{out&&<Card className="resultBox" style={{marginTop:14}}>{out}</Card>}</div>
 }
 
@@ -956,7 +954,7 @@ function YouTube({settings,setToast}){
   }
   const analyze=async()=>{
     if(!video?.transcript)return
-    setLoading(true);setAnalysis(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'youtube-analysis',input:`TITLE: ${video.title}\nCHANNEL: ${video.channel}\n\nTRANSCRIPT:\n${video.transcript}`,system:'Analyze only the supplied title/channel/transcript. Do not add video facts, timestamps or claims that are not present.'})));setLoading(false)
+    setLoading(true);setAnalysis(aiResultText(await runTask(settings,{action:'youtube-analysis',input:`TITLE: ${video.title}\nCHANNEL: ${video.channel}\n\nTRANSCRIPT:\n${video.transcript}`,system:'Analyze only the supplied title/channel/transcript. Do not add video facts, timestamps or claims that are not present.'})));setLoading(false)
   }
 
   return <div className="page">
@@ -1067,6 +1065,12 @@ function Settings({workspace,setWorkspace,settings,setSettings,setToast}){
   return <div className="page settingsPageV49"><div className="settingsPageTitle"><h1 className="headline youHeadline">Профиль</h1><p className="subtle small">Настройки применяются сразу и сохраняются на этом устройстве.</p></div><div className="settingsGrid">
     <Card className="personalSettingsCard"><div className="profileSettingsRow"><div className="avatar profileAvatarLarge">{(settings.profile?.name||'N')[0]}</div><label className="settingLabel profileNameField">Имя<Input value={settings.profile?.name||''} onChange={e=>setSettings(current=>({...current,profile:{...(current.profile||{}),name:e.target.value}}))} placeholder="Ваше имя"/></label></div><div className="settingsSectionLine"><div><strong>Тема</strong><span>Светлая, тёмная или системная</span></div><div className="segmented compactSegment">{[['light','Светлая'],['dark','Тёмная'],['system','Авто']].map(([t,label])=><button key={t} className={settings.theme===t?'active':''} onClick={()=>setSettings(s=>({...s,theme:t}))}>{label}</button>)}</div></div><div className="settingsSectionLine"><div><strong>Размер текста</strong><span>Меняет интерфейс и редактор</span></div><div className="segmented compactSegment">{[['small','Меньше'],['normal','Обычно'],['large','Больше']].map(([value,label])=><button key={value} className={(settings.fontScale||'normal')===value?'active':''} onClick={()=>setSettings(s=>({...s,fontScale:value}))}>{label}</button>)}</div></div><div className="settingsSectionLine"><div><strong>Плотность</strong><span>Количество информации на экране</span></div><div className="segmented compactSegment">{[['compact','Плотно'],['comfortable','Свободно']].map(([value,label])=><button key={value} className={(settings.density||'compact')===value?'active':''} onClick={()=>setSettings(s=>({...s,density:value}))}>{label}</button>)}</div></div></Card>
 
+    <Card className="modelManagerCard"><ModelManager
+      models={settings.models||[]}
+      activeModelId={settings.activeModelId||''}
+      onChange={({models,activeModelId})=>setSettings(current=>({...current,models,activeModelId}))}
+      setToast={setToast}
+    /></Card>
     <Card><div className="row space"><div><h3>AI и обработка источников</h3><p className="small subtle" style={{marginTop:5}}>API-ключи остаются на сервере. Веб использует тот же origin, Android — защищённый HTTPS-шлюз.</p></div><Button tone="tonal" icon="health_and_safety" onClick={checkGateway} disabled={checking}>{checking?'Проверка…':'Проверить'}</Button></div><div className="connectorGrid" style={{marginTop:12}}><label className="settingLabel">AI<Input value={endpoint} onChange={e=>setEndpoint(e.target.value)} placeholder="/api/ai"/></label><label className="settingLabel">Embeddings<Input value={embedEndpoint} onChange={e=>setEmbedEndpoint(e.target.value)} placeholder="/api/embed"/></label><label className="settingLabel">Vision / OCR<Input value={visionEndpoint} onChange={e=>setVisionEndpoint(e.target.value)} placeholder="/api/vision"/></label><label className="settingLabel">Transcription<Input value={transcribeEndpoint} onChange={e=>setTranscribeEndpoint(e.target.value)} placeholder="/api/transcribe"/></label><label className="settingLabel">YouTube<Input value={youtubeEndpoint} onChange={e=>setYoutubeEndpoint(e.target.value)} placeholder="/api/youtube"/></label><label className="settingLabel">AI model<Input value={model} onChange={e=>setModel(e.target.value)} placeholder="server-default"/></label></div><div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}><Button icon="save" onClick={saveAI}>Сохранить подключения</Button>{health&&<span className={`sourceStatus ${health.ok?'ready':'needs'}`}>{health.ok?`Server v${health.version||'?'} · AI ${health.aiConfigured?'configured':'not configured'}`:health.error||'Server unavailable'}</span>}</div>{health?.ok&&<div className="healthGrid"><div><span>Text</span><strong>{health.model}</strong></div><div><span>Vision</span><strong>{health.visionModel}</strong></div><div><span>Embeddings</span><strong>{health.embeddingModel}</strong></div><div><span>Transcription</span><strong>{health.transcriptionModel}</strong></div><div><span>Large media</span><strong>{health.durableWorkerQueue?'durable queue':health.resumableUploads?'resumable':'off'}</strong></div><div><span>FFmpeg</span><strong>{health.ffmpeg?'ready':'missing'}</strong></div><div><span>Heavy workers</span><strong>{Number.isFinite(health.activeLargeMediaTasks)?`${health.activeLargeMediaTasks}/${health.maxLargeMediaTasks||'?'}`:'—'}</strong></div><div><span>Accounts</span><strong>{health.accountAuth?'sessions':'off'}</strong></div><div><span>Registration</span><strong>{health.registrationEnabled?'enabled':'closed'}</strong></div><div><span>Legacy sync</span><strong>{health.syncConfigured?'ready':'off'}</strong></div></div>}</Card>
 
     <Card><div className="row space"><div><h3>Аккаунт и синхронизация устройств</h3><p className="small subtle" style={{marginTop:5}}>Separate revocable session per device. Android stores the session encrypted with a non-exportable Android Keystore AES key; web/PWA keeps it only for the current browser session.</p></div><span className="tag">rev {settings.accountRevision||0}</span></div>

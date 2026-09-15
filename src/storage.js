@@ -21,6 +21,8 @@ export const defaultSettings = {
   accountRevision: 0,
   accountEmail: '',
   aiModel: 'server-default',
+  models: [],
+  activeModelId: '',
   profile: { name: 'Локальный профиль', email: 'local@noteai.app' }
 }
 
@@ -45,7 +47,10 @@ export function saveSettings(settings) {
 }
 
 export function exportBundle(workspace, settings, extras = {}) {
-  const { syncToken, ...portableSettings } = settings || {}
+  // Model key references are per-device; the secrets live in secure storage and
+  // must not ride along in a backup.
+  const { syncToken, ...rest } = settings || {}
+  const portableSettings = { ...rest, models: (rest.models || []).map(({ apiKeyRef, ...m }) => m) }
   return JSON.stringify({ format: 'noteai-v3.6', exportedAt: new Date().toISOString(), workspace, settings: portableSettings, sources: extras.sources || [], chunks: extras.chunks || [] }, null, 2)
 }
 

@@ -57,6 +57,11 @@ function Glyph({name}){
     case 'forum': return <><path d="M4 5h13v10H9l-4 3v-3H4z"/><path d="M9 8h5M9 11h4"/></>
     case 'slideshow': return <><rect x="3.5" y="5" width="17" height="13" rx="2"/><path d="m10 9 5 3-5 3zM8 21h8"/></>
     case 'restart_alt': return <><path d="M6 8V4l-3 3 3 3V8a7 7 0 1 1-1 8"/></>
+    case 'info': return <><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.9"/></>
+    case 'radio_button_unchecked': return <><circle cx="12" cy="12" r="8.5"/></>
+    case 'warning': return <><path d="M12 4.5 20.5 19H3.5z"/><path d="M12 10v4M12 16.4v.8"/></>
+    case 'save': return <><path d="M5 5h11l3 3v11H5z"/><path d="M8 5v5h7M8 19v-5h8v5"/></>
+    case 'health_and_safety': return <><path d="M12 3.5 19 6v6c0 4-3 6.7-7 8.5-4-1.8-7-4.5-7-8.5V6z"/><path d="M12 8.5v6M9 11.5h6"/></>
     default: return <><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></>
   }
 }
