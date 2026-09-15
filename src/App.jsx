@@ -43,8 +43,6 @@ function stripMarkdown(text='') { return text.replace(/[#*_`>~-]/g,' ').replace(
 function fileSize(bytes=0){ const u=['B','KB','MB','GB']; let i=0,n=bytes; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(i?1:0)} ${u[i]}` }
 function downloadText(name,text,type='application/json') { const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name;a.click(); setTimeout(()=>URL.revokeObjectURL(url),500) }
 function locatorLabel(locator, sectionLabel='') { if(locator?.page)return `стр. ${locator.page}`; if(Number.isFinite(Number(locator?.startSeconds)))return `${locator?.speaker?`${locator.speaker} · `:''}${secondsLabel(locator.startSeconds)}`; return sectionLabel||'' }
-function healthEndpointFor(endpoint='/api/ai'){try{return new URL('/api/health',new URL(endpoint||'/api/ai',window.location.href)).toString()}catch{return'/api/health'}}
-function gatewayApiEndpointFor(endpoint='/api/ai',path='/api/source-url'){try{const base=new URL(endpoint||'/api/ai',window.location.href);return new URL(path,base.origin).toString()}catch{return path}}
 function sourceIcon(kind='') { if(kind==='url')return'language';if(kind==='youtube')return'play_circle';if(kind==='instagram')return'photo_library';if(kind==='pdf')return'picture_as_pdf';if(['docx','odt','epub'].includes(kind))return'description';if(kind==='pptx'||kind==='odp')return'slideshow';if(kind==='xlsx'||kind==='ods')return'table';if(kind==='image')return'image';if(kind==='audio')return'graphic_eq';if(kind==='video')return'movie';return'article' }
 function objectVariant(seed=''){let h=0;for(const ch of String(seed))h=(h*31+ch.charCodeAt(0))>>>0;return h%5}
 function knowledgeIcon(kind='note'){

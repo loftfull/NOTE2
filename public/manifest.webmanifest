@@ -1,0 +1,16 @@
+{
+  "name": "NOTE2",
+  "short_name": "NOTE2",
+  "description": "Локальный блокнот, источники и личная база знаний",
+  "lang": "ru",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F5F6",
+  "theme_color": "#F4F5F6",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
