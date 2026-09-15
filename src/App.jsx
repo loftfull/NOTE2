@@ -36,6 +36,14 @@ const NAV = [
 ]
 const MOBILE = NAV.map(item=>item[0])
 
+// Light-only by product decision: three visual styles, no dark theme.
+export const APP_STYLES = [
+  ['grifel','Грифель','Плотный инструмент. Тонкие линии, индиго.'],
+  ['pero','Перо','Издание. Воздух, серифный заголовок, изумруд.'],
+  ['yasny','Ясный','Дневной свет. Мягкие тени, синий, крупные скругления.']
+]
+
+
 function formatDate(ts) { return new Date(ts).toLocaleDateString('ru-RU',{month:'short',day:'numeric'}) }
 function countWords(text='') { return (text.trim().match(/\S+/g)||[]).length }
 function stripMarkdown(text='') { return text.replace(/[#*_`>~-]/g,' ').replace(/\s+/g,' ').trim() }
@@ -362,11 +370,12 @@ export default function App(){
   useEffect(()=>{let live=true;getCredential('noteai-account-session-v1').then(token=>{if(live&&token)setApiSessionAuth(token,settings.accountEndpoint||'/api/account')}).catch(()=>{});return()=>{live=false}},[])
   useEffect(()=>saveWorkspace(workspace),[workspace])
   useEffect(()=>saveSettings(settings),[settings])
+  // The app is light-only by product decision. What used to be a light/dark
+  // switch is now a choice between three light visual styles; the system
+  // colour-scheme preference is deliberately not consulted.
   useEffect(()=>{
-    const media=matchMedia('(prefers-color-scheme: dark)')
-    const apply=()=>document.documentElement.dataset.theme=settings.theme==='system'?(media.matches?'dark':'light'):settings.theme
-    apply(); media.addEventListener?.('change',apply); return()=>media.removeEventListener?.('change',apply)
-  },[settings.theme])
+    document.documentElement.dataset.style=APP_STYLES.some(s=>s[0]===settings.style)?settings.style:APP_STYLES[0][0]
+  },[settings.style])
   useEffect(()=>{
     document.documentElement.dataset.fontScale=settings.fontScale||'normal'
     document.documentElement.dataset.density=settings.density||'compact'
@@ -1063,7 +1072,7 @@ function Settings({workspace,setWorkspace,settings,setSettings,setToast}){
   const importAll=async e=>{const f=e.target.files?.[0];if(!f)return;try{const bundle=importBundle(await f.text());setWorkspace(bundle.workspace);setSettings(current=>({...bundle.settings,syncToken:current.syncToken||'',syncEndpoint:current.syncEndpoint||bundle.settings.syncEndpoint||'/api/sync',syncWorkspaceId:current.syncWorkspaceId||bundle.settings.syncWorkspaceId||'default',syncRevision:current.syncRevision||0,accountEndpoint:current.accountEndpoint||'/api/account',accountWorkspaceId:current.accountWorkspaceId||'default',accountRevision:current.accountRevision||0,accountEmail:current.accountEmail||''}));setEndpoint(bundle.settings.aiEndpoint);setEmbedEndpoint(bundle.settings.embedEndpoint||'/api/embed');setVisionEndpoint(bundle.settings.visionEndpoint||'/api/vision');setTranscribeEndpoint(bundle.settings.transcribeEndpoint||'/api/transcribe');setYoutubeEndpoint(bundle.settings.youtubeEndpoint||'/api/youtube');setModel(bundle.settings.aiModel);if(bundle.sources?.length){const bySource=new Map();for(const chunk of bundle.chunks||[]){if(!bySource.has(chunk.sourceId))bySource.set(chunk.sourceId,[]);bySource.get(chunk.sourceId).push(chunk)}for(const source of bundle.sources)await saveSourceWithChunks(source,(bySource.get(source.id)||[]).sort((a,b)=>a.index-b.index))}setToast('Backup imported')}catch(err){setToast(err.message)}finally{e.target.value=''}}
 
   return <div className="page settingsPageV49"><div className="settingsPageTitle"><h1 className="headline youHeadline">Профиль</h1><p className="subtle small">Настройки применяются сразу и сохраняются на этом устройстве.</p></div><div className="settingsGrid">
-    <Card className="personalSettingsCard"><div className="profileSettingsRow"><div className="avatar profileAvatarLarge">{(settings.profile?.name||'N')[0]}</div><label className="settingLabel profileNameField">Имя<Input value={settings.profile?.name||''} onChange={e=>setSettings(current=>({...current,profile:{...(current.profile||{}),name:e.target.value}}))} placeholder="Ваше имя"/></label></div><div className="settingsSectionLine"><div><strong>Тема</strong><span>Светлая, тёмная или системная</span></div><div className="segmented compactSegment">{[['light','Светлая'],['dark','Тёмная'],['system','Авто']].map(([t,label])=><button key={t} className={settings.theme===t?'active':''} onClick={()=>setSettings(s=>({...s,theme:t}))}>{label}</button>)}</div></div><div className="settingsSectionLine"><div><strong>Размер текста</strong><span>Меняет интерфейс и редактор</span></div><div className="segmented compactSegment">{[['small','Меньше'],['normal','Обычно'],['large','Больше']].map(([value,label])=><button key={value} className={(settings.fontScale||'normal')===value?'active':''} onClick={()=>setSettings(s=>({...s,fontScale:value}))}>{label}</button>)}</div></div><div className="settingsSectionLine"><div><strong>Плотность</strong><span>Количество информации на экране</span></div><div className="segmented compactSegment">{[['compact','Плотно'],['comfortable','Свободно']].map(([value,label])=><button key={value} className={(settings.density||'compact')===value?'active':''} onClick={()=>setSettings(s=>({...s,density:value}))}>{label}</button>)}</div></div></Card>
+    <Card className="personalSettingsCard"><div className="profileSettingsRow"><div className="avatar profileAvatarLarge">{(settings.profile?.name||'N')[0]}</div><label className="settingLabel profileNameField">Имя<Input value={settings.profile?.name||''} onChange={e=>setSettings(current=>({...current,profile:{...(current.profile||{}),name:e.target.value}}))} placeholder="Ваше имя"/></label></div><div className="styleChooser"><div className="sectionHeader"><div><strong>Стиль оформления</strong><span className="small subtle">Три светлых темы. Тёмной нет намеренно.</span></div></div><div className="styleGrid">{APP_STYLES.map(([id,label,note])=><button key={id} className={`styleTile ${(settings.style||APP_STYLES[0][0])===id?'active':''}`} data-preview={id} onClick={()=>setSettings(s=>({...s,style:id}))}><span className="stylePreview" aria-hidden="true"><i/><i/><i/></span><span className="styleName">{label}</span><span className="styleNote">{note}</span></button>)}</div></div><div className="settingsSectionLine"><div><strong>Размер текста</strong><span>Меняет интерфейс и редактор</span></div><div className="segmented compactSegment">{[['small','Меньше'],['normal','Обычно'],['large','Больше']].map(([value,label])=><button key={value} className={(settings.fontScale||'normal')===value?'active':''} onClick={()=>setSettings(s=>({...s,fontScale:value}))}>{label}</button>)}</div></div><div className="settingsSectionLine"><div><strong>Плотность</strong><span>Количество информации на экране</span></div><div className="segmented compactSegment">{[['compact','Плотно'],['comfortable','Свободно']].map(([value,label])=><button key={value} className={(settings.density||'compact')===value?'active':''} onClick={()=>setSettings(s=>({...s,density:value}))}>{label}</button>)}</div></div></Card>
 
     <Card className="modelManagerCard"><ModelManager
       models={settings.models||[]}
