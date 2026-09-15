@@ -1,5 +1,6 @@
 import { authenticatedFetch } from './api-session.js'
 import { resolveGatewayEndpoint } from './gateway-url.js'
+import { chatCompletion } from './providers.js'
 const STOP = new Set('the a an and or but of to in on for with from as is are was were be been being this that these those it its by at into about your you we our they their i me my have has had can could should would will may might not no do does did if then than also very more most some any all'.split(' '))
 
 export function tokenize(text) {
@@ -127,7 +128,31 @@ async function describeFailure(response) {
  * could not tell that nothing had been analysed. Callers must decide what to
  * show; they must never present 'local' or 'error' output as a model result.
  */
-export async function runAiTask({ endpoint, model, action, input, system, history, signal }) {
+// The registry path: talk to an OpenAI-compatible provider directly. This is
+// what lets the AI features work at all now that the project's own gateway
+// (server.mjs) is lost — the model is reached from the client, and the same
+// fail-closed rule applies: a failure is reported, never replaced by local text.
+async function runRegistryTask({ modelRecord, apiKey, action, input, system, history, signal }) {
+  const messages = [
+    ...(Array.isArray(history) ? history.filter(m => m?.role && m?.content) : []),
+    { role: 'user', content: String(input || '') }
+  ]
+  try {
+    const result = await chatCompletion(
+      { ...modelRecord, apiKey },
+      { system: system || undefined, messages, signal }
+    )
+    return { text: result.text, origin: AI_ORIGIN.model, action, model: result.model, error: null }
+  } catch (error) {
+    return { text: '', origin: AI_ORIGIN.error, action, error: error?.message || 'Модель недоступна.' }
+  }
+}
+
+export async function runAiTask({ endpoint, model, action, input, system, history, signal, modelRecord, apiKey }) {
+  // A model from the registry wins over the legacy gateway endpoint.
+  if (modelRecord?.baseUrl && modelRecord?.model) {
+    return runRegistryTask({ modelRecord, apiKey, action, input, system, history, signal })
+  }
   if (!endpoint) return localResult(action, input)
 
   // A relative endpoint is correct on the web and wrong in a native WebView,
