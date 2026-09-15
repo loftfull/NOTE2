@@ -21,3 +21,7 @@ export function resultsLabel(count) {
 export function sourcesLabel(count) {
   return `${count} ${pluralRu(count, 'источник', 'источника', 'источников')}`
 }
+
+export function tasksLabel(count) {
+  return `${count} ${pluralRu(count, 'задача', 'задачи', 'задач')}`
+}

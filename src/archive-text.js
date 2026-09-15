@@ -144,7 +144,7 @@ async function extractDocx(bytes, entries) {
   for (const entry of parts) {
     const xml = await entryText(bytes, entry)
     const text = stripMarkup(xml, { paragraphTags: ['w:p','w:tr'] })
-    if (text) sections.push({ label: entry.name === 'word/document.xml' ? 'Document' : entry.name, text })
+    if (text) sections.push({ label: entry.name === 'word/document.xml' ? 'Документ' : entry.name, text })
   }
   return sections
 }
@@ -197,7 +197,7 @@ async function extractOpenDocument(bytes, entries) {
   if (!content) return []
   const xml = await entryText(bytes, content)
   const text = stripMarkup(xml, { paragraphTags: ['text:p','text:h','table:table-row'] })
-  return text ? [{ label: 'Document', text }] : []
+  return text ? [{ label: 'Документ', text }] : []
 }
 
 function htmlToText(html = '') {
