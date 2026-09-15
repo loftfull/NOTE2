@@ -54,7 +54,11 @@
   --display-weight: 620;
   --display-tracking: -.022em;
 
-  --btn-h: 42px;
+  /* Geometry contract — see the yasny block for what each one governs. */
+  --ctl-h: 44px;
+  --chip-h: 34px;
+  --sq: 40px;
+  --btn-h: var(--ctl-h);
   --pad: 16px;
   --gap: 12px;
   --row-h: 46px;
@@ -106,7 +110,10 @@
   --display-weight: 700;
   --display-tracking: -.012em;
 
-  --btn-h: 46px;
+  --ctl-h: 48px;
+  --chip-h: 38px;
+  --sq: 44px;
+  --btn-h: var(--ctl-h);
   --pad: 20px;
   --gap: 16px;
   --row-h: 52px;
@@ -124,65 +131,74 @@
 }
 
 :root[data-style="yasny"] {
-  /* Soft UI. The ground is deliberately NOT white: a raised surface needs a
-     darker ground beneath it for the drop shadow AND a lighter highlight above
-     it, and you cannot get both against #fff. Text contrast is kept well clear
-     of the soft-UI trap — every ink value below passes AA on both ground and
-     surface, so only the surfaces are soft, never the type. */
-  --ground: #e9ecf2;
-  --surface: #f7f8fc;
-  --surface-2: #e1e5ee;
-  --ink: #131a27;
-  --ink-2: #4a566b;
-  --ink-3: #5c687f;
-  --line: #d8dde8;
-  --line-strong: #c4ccdb;
-  --accent: #2563eb;
+  /* Glassmorphism on light. Frosted surfaces need colour behind them to read
+     as glass, so the ground carries a soft tinted gradient and every surface is
+     translucent white over it. No extruded / inset shadows anywhere.
+
+     GEOMETRY CONTRACT — one scale, used everywhere, so blocks line up:
+       --ctl-h    every single-line control: button, input, select, search row
+       --chip-h   secondary pills: chip, filter, segmented item
+       --sq       every square: icon button, icon tile, avatar
+       --r-*      one radius ladder; nothing invents its own value
+  */
+  --ground: #eef1f8;
+  --tint-1: rgba(124, 110, 240, .20);
+  --tint-2: rgba(56, 150, 240, .17);
+  --tint-3: rgba(45, 200, 170, .13);
+
+  --surface: rgba(255, 255, 255, .62);
+  --surface-2: rgba(255, 255, 255, .45);
+  --surface-3: rgba(255, 255, 255, .78);
+  --glass-blur: 22px;
+  --glass-edge: rgba(255, 255, 255, .7);
+  --glass-top: rgba(255, 255, 255, .95);
+
+  --ink: #101828;
+  --ink-2: #44536a;
+  --ink-3: #5a6880;
+  --line: rgba(16, 24, 40, .1);
+  --line-strong: rgba(16, 24, 40, .18);
+
+  --accent: #1d4ed8;
   --accent-ink: #ffffff;
-  --accent-soft: #dce7fe;
+  --accent-soft: rgba(29, 78, 216, .12);
   --ok: #0d7a52;
-  --ok-soft: #dff2ea;
+  --ok-soft: rgba(13, 122, 82, .12);
   --warn: #95590a;
-  --warn-soft: #fcf1e1;
+  --warn-soft: rgba(149, 89, 10, .12);
   --danger: #c32c2c;
-  --danger-soft: #fceded;
+  --danger-soft: rgba(195, 44, 44, .12);
 
   --r-sm: 12px;
   --r-md: 18px;
   --r-lg: 26px;
   --r-pill: 999px;
 
-  /* The two halves of soft UI: a warm-white highlight up-left, a cool shadow
-     down-right. Raised and inset are the same pair with the signs flipped. */
-  --lift: rgba(255, 255, 255, .95);
-  --drop: rgba(21, 32, 56, .13);
-  --raise-sm: -2px -2px 6px var(--lift), 3px 3px 8px var(--drop);
-  --raise: -4px -4px 12px var(--lift), 7px 7px 18px var(--drop);
-  --raise-lg: -6px -6px 18px var(--lift), 12px 12px 30px var(--drop);
-  --inset: inset 2px 2px 6px var(--drop), inset -2px -2px 6px var(--lift);
-
-  --shadow-1: var(--raise-sm);
-  --shadow-2: var(--raise);
-  --shadow-3: var(--raise-lg);
+  --shadow-1: 0 2px 8px rgba(16, 24, 40, .06);
+  --shadow-2: 0 8px 24px -8px rgba(16, 24, 40, .16);
+  --shadow-3: 0 24px 56px -18px rgba(16, 24, 40, .28);
 
   --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font);
   --display-weight: 700;
   --display-tracking: -.028em;
 
-  --btn-h: 50px;
+  --ctl-h: 48px;
+  --chip-h: 38px;
+  --sq: 44px;
+  --btn-h: var(--ctl-h);
+  --row-h: 64px;
   --pad: 18px;
   --gap: 14px;
-  --row-h: 58px;
 
   --ease: cubic-bezier(.32, .72, 0, 1);
-  --ms: 220ms;
+  --ms: 200ms;
 
-  --card-border: 1px solid transparent;
-  --card-shadow: var(--raise);
+  --card-border: 1px solid var(--glass-edge);
+  --card-shadow: var(--shadow-2);
   --card-radius: var(--r-md);
 
-  --nav-h: 74px;
+  --nav-h: 72px;
   --header-h: 58px;
   color-scheme: light;
 }
@@ -375,7 +391,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .iconBtn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; flex: none; padding: 0;
+  /* Square, and the same square as an icon tile, so a row of mixed controls
+     sits on one baseline. */
+  width: var(--sq); height: var(--sq); flex: none; padding: 0;
   border: 1px solid transparent; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-2); cursor: pointer;
   transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease);
@@ -391,7 +409,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .textAction:hover { text-decoration: underline }
 
 .input, .textarea, .select, .titleInput, .contentInput, .instagramStructuredInput, .profileNameField {
-  width: 100%; min-height: var(--row-h); padding: 11px 13px;
+  width: 100%; min-height: var(--ctl-h); padding: 11px 13px;
   border: 1px solid var(--line-strong); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink);
   font: inherit; font-size: var(--t-body);
@@ -423,21 +441,25 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .field.hasError .input { border-color: var(--danger) }
 
 .searchRow, .sourceLibrarySearch, .capturePaste {
-  display: flex; align-items: center; gap: 9px;
-  min-height: var(--row-h); padding: 0 14px;
+  display: flex; align-items: stretch; gap: 9px;
+  min-height: var(--ctl-h); padding: 0 14px;
   background: var(--surface); border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
   transition: border-color var(--ms) var(--ease), box-shadow var(--ms) var(--ease);
 }
 .searchRow:focus-within, .sourceLibrarySearch:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft) }
 .searchRow .input, .sourceLibrarySearch .input {
-  border: 0; min-height: auto; padding: 0; background: transparent;
+  /* Flush inside the pill: the row owns the rounding, the field carries none. */
+  border: 0; border-radius: 0; padding: 0; display: flex; align-items: center; background: transparent;
   flex: 1 1 auto; min-width: 0;
+  /* Fill the row rather than sitting at content height, so the whole pill is
+     the hit target and the caret lines up with the icon. */
+  min-height: 0; align-self: stretch;
 }
 .searchRow .input:focus, .sourceLibrarySearch .input:focus { border: 0; box-shadow: none }
 .searchRow .select {
-  flex: 0 1 auto; min-width: 0; min-height: 32px; padding: 0 18px 0 9px;
-  max-width: 44%;
+  flex: 0 1 auto; min-width: 0; padding: 0 18px 0 9px;
+  min-height: 0; align-self: stretch; max-width: 44%;
   border: 0; border-left: 1px solid var(--line); border-radius: 0;
   background: transparent; font-size: var(--t-secondary); font-weight: 600; color: var(--ink-2);
 }
@@ -454,7 +476,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .segmented::-webkit-scrollbar { display: none }
 .segmented button {
-  flex: none; min-height: 32px; padding: 0 14px;
+  flex: none; min-height: calc(var(--chip-h) - 6px); padding: 0 14px;
   border: 0; border-radius: calc(var(--r-sm) - 1px);
   background: transparent; color: var(--ink-2);
   font: inherit; font-size: var(--t-control); font-weight: 600;
@@ -468,7 +490,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .chip, .notebookViews button {
   display: inline-flex; align-items: center; gap: 6px;
-  min-height: 34px; padding: 0 13px; flex: none;
+  min-height: var(--chip-h); padding: 0 14px; flex: none;
   border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface); color: var(--ink-2);
   font: inherit; font-size: var(--t-secondary); font-weight: 600;
@@ -550,12 +572,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="pero"] .bottomNav button.active::after {
   content: ""; position: absolute; bottom: 5px;
   width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
-}
-/* Yasny: a raised pill behind the icon — see the soft UI section below. */
-:root[data-style="yasny"] .bottomNav button .appIcon {
-  padding: 7px 15px; border-radius: var(--r-pill);
-  transition: background-color var(--ms) var(--ease), box-shadow var(--ms) var(--ease);
-  box-sizing: content-box;
 }
 
 .fab {
@@ -650,7 +666,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .brand { display: flex; align-items: center; gap: 10px }
 .brandMark {
-  width: 32px; height: 32px; display: grid; place-items: center;
+  width: var(--sq); height: var(--sq); display: grid; place-items: center;
   border-radius: var(--r-sm); background: var(--accent); color: var(--accent-ink); font-weight: 700;
 }
 .brandText { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -.02em }
@@ -689,9 +705,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .todayReview, .reviewSurface { display: flex; flex-direction: column; gap: 10px }
 .reviewItem { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--line) }
 .reviewItem:last-child { border-bottom: 0 }
-.reviewOrb { width: 34px; height: 34px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none }
+.reviewOrb { width: var(--sq); height: var(--sq); border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none }
 .reviewClear { color: var(--ink-2) }
-.metricIcon { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--accent); display: grid; place-items: center; flex: none }
+.metricIcon { width: var(--sq); height: var(--sq); border-radius: var(--r-sm); background: var(--surface-2); color: var(--accent); display: grid; place-items: center; flex: none }
 :root[data-style="pero"] .metricIcon, :root[data-style="yasny"] .metricIcon,
 :root[data-style="pero"] .reviewOrb, :root[data-style="yasny"] .reviewOrb { border-radius: var(--r-pill) }
 
@@ -717,7 +733,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .unifiedSourceCopy, .jobMain { min-width: 0; flex: 1 }
 .unifiedSourceIcon, .semanticObject, .knowledgeObject, .graphNode {
-  flex: none; width: 38px; height: 38px; border-radius: var(--r-sm);
+  flex: none; width: var(--sq); height: var(--sq); border-radius: var(--r-sm);
   background: var(--surface-2); color: var(--accent);
   display: grid; place-items: center; position: relative; overflow: hidden;
 }
@@ -778,7 +794,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .modelCardTop .statusPill { flex: none }
 
 .modelPick {
-  width: 32px; height: 32px; flex: none; display: grid; place-items: center;
+  width: var(--sq); height: var(--sq); flex: none; display: grid; place-items: center;
   border-radius: var(--r-pill); cursor: pointer;
   background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink-3);
   transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease);
@@ -799,7 +815,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .modelIds { margin-top: 5px; opacity: .85; overflow-wrap: anywhere }
 
 .modelActions { display: flex; gap: 8px; flex-wrap: wrap }
-.modelActions .btn { flex: 1; min-width: 118px; min-height: 38px; font-size: var(--t-secondary) }
+.modelActions .btn { flex: 1; min-width: 118px; font-size: var(--t-secondary) }
 
 .modelForm { display: flex; flex-direction: column; gap: 15px }
 .providerGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 8px }
@@ -837,7 +853,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .editorCommandBar::-webkit-scrollbar, .templateBar::-webkit-scrollbar,
 .sourceViewerTabs::-webkit-scrollbar, .instagramInsightTabs::-webkit-scrollbar { display: none }
 .editorCommandBar button, .templateBar button, .roleBar button {
-  flex: none; min-height: 34px; padding: 0 12px;
+  flex: none; min-height: var(--chip-h); padding: 0 13px;
   border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface); color: var(--ink-2);
   font: inherit; font-size: 11px; font-weight: 600;
@@ -903,7 +919,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .sourceMediaArrow, .instagramArrow, .prev, .next {
   position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
-  width: 36px; height: 36px; display: grid; place-items: center;
+  width: var(--sq); height: var(--sq); display: grid; place-items: center;
   border: 1px solid var(--line); border-radius: var(--r-pill);
   background: var(--surface); color: var(--ink); cursor: pointer;
   box-shadow: var(--shadow-1);
@@ -972,7 +988,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink);
   display: grid; place-items: center; font-weight: 700; flex: none;
 }
-.avatar { width: 40px; height: 40px }
+.avatar { width: var(--sq); height: var(--sq) }
 .profileAvatarLarge { width: 68px; height: 68px; font-size: 25px }
 .profileSettingsRow { display: flex; align-items: center; gap: 12px }
 
@@ -1012,10 +1028,23 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   @keyframes sheetUp { from { opacity: 0 } to { opacity: 1 } }
 }
 
-/* ---------- soft UI (Ясный) ---------- */
-/* Structure, not just colour: surfaces are extruded from the ground, pressing
-   pushes them in, and the tab bar floats as a pill instead of ruling off the
-   bottom edge. */
+/* ---------- glass (Мягкий) ---------- */
+/* Every surface is the same recipe: translucent white, one blur, one hairline
+   edge, one top highlight. Geometry comes from the contract in the token block
+   so buttons, inputs and tiles share heights and radii rather than each
+   picking their own. */
+
+:root[data-style="yasny"] body { background: var(--ground); }
+:root[data-style="yasny"] body::before {
+  content: "";
+  position: fixed; inset: -20%;
+  z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42% 32% at 12% 6%, var(--tint-1), transparent 70%),
+    radial-gradient(40% 30% at 88% 16%, var(--tint-2), transparent 70%),
+    radial-gradient(48% 36% at 62% 84%, var(--tint-3), transparent 72%);
+  filter: blur(28px);
+}
 
 :root[data-style="yasny"] .card,
 :root[data-style="yasny"] .noteRow,
@@ -1030,116 +1059,138 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .captureChoices button,
 :root[data-style="yasny"] .quickActionsFlat button,
 :root[data-style="yasny"] .sourceReaderStage,
-:root[data-style="yasny"] .sourceDocumentStage {
+:root[data-style="yasny"] .sourceDocumentStage,
+:root[data-style="yasny"] .empty,
+:root[data-style="yasny"] .modelEmpty,
+:root[data-style="yasny"] .bottomNav,
+:root[data-style="yasny"] .sheetPanel,
+:root[data-style="yasny"] .captureSheet,
+:root[data-style="yasny"] .sourceToolsSheet,
+:root[data-style="yasny"] .drawer {
+  /* No position here: the tab bar, sheets and drawer are fixed, and setting
+     position:relative on the shared recipe dropped the tab bar out of fixed
+     positioning so left/right stopped applying and it ran past the viewport.
+     Elements that need a containing block for the ::before highlight get it
+     in the rule below instead. */
   background: var(--surface);
-  border-color: transparent;
-  box-shadow: var(--raise);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
-/* Pressing pushes a control into the surface rather than moving it down. */
-:root[data-style="yasny"] .noteRow:active,
-:root[data-style="yasny"] .unifiedSourceRow:active,
-:root[data-style="yasny"] .continueItem:active,
-:root[data-style="yasny"] .captureChoices button:active,
-:root[data-style="yasny"] .quickActionsFlat button:active,
-:root[data-style="yasny"] .providerTile:active,
-:root[data-style="yasny"] .styleTile:active { box-shadow: var(--inset); transform: none }
+/* Containing block for the highlight, on the non-fixed surfaces only. */
+:root[data-style="yasny"] .card,
+:root[data-style="yasny"] .noteRow,
+:root[data-style="yasny"] .unifiedSourceRow,
+:root[data-style="yasny"] .continueItem,
+:root[data-style="yasny"] .modelCard { position: relative; }
+
+/* The single highlight that makes a translucent panel read as glass. */
+:root[data-style="yasny"] .card::before,
+:root[data-style="yasny"] .noteRow::before,
+:root[data-style="yasny"] .unifiedSourceRow::before,
+:root[data-style="yasny"] .continueItem::before,
+:root[data-style="yasny"] .modelCard::before,
+:root[data-style="yasny"] .sheetPanel::before,
+:root[data-style="yasny"] .bottomNav::before {
+  content: "";
+  position: absolute; inset: 0 0 auto; height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--glass-top), transparent);
+  pointer-events: none;
+}
 
 :root[data-style="yasny"] .noteRow:hover,
 :root[data-style="yasny"] .unifiedSourceRow:hover,
-:root[data-style="yasny"] .continueItem:hover { box-shadow: var(--raise-lg); background: var(--surface) }
-
-/* Selected states read as pressed-in, which is how soft UI shows "on". */
+:root[data-style="yasny"] .continueItem:hover,
+:root[data-style="yasny"] .providerTile:hover,
+:root[data-style="yasny"] .styleTile:hover,
+:root[data-style="yasny"] .captureChoices button:hover,
+:root[data-style="yasny"] .quickActionsFlat button:hover {
+  background: var(--surface-3);
+  border-color: #fff;
+  transform: translateY(-1px);
+}
 :root[data-style="yasny"] .styleTile.active,
 :root[data-style="yasny"] .providerTile.active,
-:root[data-style="yasny"] .modelCard.active { box-shadow: var(--inset); background: var(--accent-soft) }
+:root[data-style="yasny"] .modelCard.active {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-2), 0 0 0 3px var(--accent-soft);
+}
 
-/* Inputs are recessed wells. */
+/* Controls: frosted, and all on the same height. */
 :root[data-style="yasny"] .input,
 :root[data-style="yasny"] .textarea,
 :root[data-style="yasny"] .select,
 :root[data-style="yasny"] .searchRow,
 :root[data-style="yasny"] .sourceLibrarySearch,
-:root[data-style="yasny"] .segmented {
-  background: var(--ground);
-  border-color: transparent;
-  box-shadow: var(--inset);
+:root[data-style="yasny"] .segmented,
+:root[data-style="yasny"] .btn.tonal,
+:root[data-style="yasny"] .chip,
+:root[data-style="yasny"] .notebookViews button,
+:root[data-style="yasny"] .editorCommandBar button,
+:root[data-style="yasny"] .templateBar button {
+  background: var(--surface-2);
+  border: 1px solid var(--glass-edge);
+  box-shadow: none;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 :root[data-style="yasny"] .input:focus,
 :root[data-style="yasny"] .textarea:focus,
+:root[data-style="yasny"] .select:focus,
 :root[data-style="yasny"] .searchRow:focus-within {
-  box-shadow: var(--inset), 0 0 0 3px var(--accent-soft);
+  background: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
-:root[data-style="yasny"] .segmented button.active { background: var(--surface); box-shadow: var(--raise-sm) }
-
-:root[data-style="yasny"] .btn { box-shadow: var(--raise-sm) }
-:root[data-style="yasny"] .btn:active:not(:disabled) { box-shadow: var(--inset); transform: none }
-:root[data-style="yasny"] .btn.tonal { background: var(--surface); color: var(--ink) }
-:root[data-style="yasny"] .chip,
-:root[data-style="yasny"] .notebookViews button {
-  background: var(--surface); border-color: transparent; box-shadow: var(--raise-sm);
-}
-/* Pressed-in is how soft UI says "on"; the label switches to the accent so it
-   stays legible instead of sitting white-on-white. */
-:root[data-style="yasny"] .chip.active,
-:root[data-style="yasny"] .notebookViews button.active {
-  background: var(--ground);
-  color: var(--accent);
-  box-shadow: var(--inset);
-}
-:root[data-style="yasny"] .chip.active .appIcon,
-:root[data-style="yasny"] .notebookViews button.active .appIcon { color: var(--accent) }
-
-/* Only the outer search row is recessed. Without this the input and the select
-   each got their own well, nesting three insets inside one another. */
 :root[data-style="yasny"] .searchRow .input,
 :root[data-style="yasny"] .searchRow .select,
 :root[data-style="yasny"] .sourceLibrarySearch .input {
-  background: transparent;
-  box-shadow: none;
+  background: transparent; border: 0; box-shadow: none; backdrop-filter: none;
 }
-:root[data-style="yasny"] .searchRow .input:focus,
-:root[data-style="yasny"] .sourceLibrarySearch .input:focus { box-shadow: none }
-:root[data-style="yasny"] .searchRow .select { border-left: 1px solid var(--line-strong) }
+:root[data-style="yasny"] .searchRow .select { border-left: 1px solid var(--line); }
+:root[data-style="yasny"] .segmented button.active { background: var(--surface-3); box-shadow: var(--shadow-1); }
 
-:root[data-style="yasny"] .iconBtn:hover { background: var(--surface); box-shadow: var(--raise-sm) }
-:root[data-style="yasny"] .iconBtn:active { box-shadow: var(--inset) }
+:root[data-style="yasny"] .btn { box-shadow: var(--shadow-1); }
+:root[data-style="yasny"] .btn:active:not(:disabled) { transform: translateY(1px); }
+:root[data-style="yasny"] .chip.active,
+:root[data-style="yasny"] .notebookViews button.active {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+}
+:root[data-style="yasny"] .chip.active .appIcon,
+:root[data-style="yasny"] .notebookViews button.active .appIcon { color: var(--accent-ink); }
+:root[data-style="yasny"] .iconBtn:hover { background: var(--surface-2); }
 
-/* The tab bar floats above the ground as one raised pill. */
+/* The tab bar floats as one glass pill. */
+/* Surfaces that sit over moving content are near-opaque. Frosted glass reads
+   as glass because of the tint and the edge, not because you can read the
+   article through it — and Android WebView support for backdrop-filter is not
+   something to stake legibility on. */
+:root[data-style="yasny"] .bottomNav,
+:root[data-style="yasny"] .sheetPanel,
+:root[data-style="yasny"] .captureSheet,
+:root[data-style="yasny"] .sourceToolsSheet,
+:root[data-style="yasny"] .drawer { background: rgba(255, 255, 255, .9); }
+
 :root[data-style="yasny"] .bottomNav {
   left: 12px; right: 12px;
   bottom: calc(var(--safe-b) + 12px);
   height: var(--nav-h);
   padding: 0 6px;
-  background: var(--surface);
-  border: 0; border-radius: var(--r-pill);
-  box-shadow: var(--raise-lg);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-3);
+}
+:root[data-style="yasny"] .bottomNav button .appIcon {
+  width: var(--sq); height: var(--sq);
+  border-radius: var(--r-pill);
+  transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease);
 }
 :root[data-style="yasny"] .bottomNav button.active .appIcon {
-  background: var(--surface); box-shadow: var(--raise-sm);
-  padding: 7px 15px; border-radius: var(--r-pill); color: var(--accent);
+  background: var(--accent); color: var(--accent-ink);
 }
-:root[data-style="yasny"] .fab {
-  bottom: calc(var(--nav-h) + var(--safe-b) + 24px);
-  width: 58px; height: 58px;
-  box-shadow: var(--raise), 0 8px 20px -6px rgba(37, 99, 235, .5);
-}
-:root[data-style="yasny"] .fab:active { box-shadow: var(--inset) }
-:root[data-style="yasny"] .main { padding-bottom: calc(var(--nav-h) + var(--safe-b) + 96px) }
-:root[data-style="yasny"] .toast { bottom: calc(var(--nav-h) + var(--safe-b) + 96px) }
-
-:root[data-style="yasny"] .header { background: var(--ground); box-shadow: none; border-bottom: 0 }
-:root[data-style="yasny"] .sheetPanel,
-:root[data-style="yasny"] .captureSheet,
-:root[data-style="yasny"] .sourceToolsSheet { background: var(--surface); box-shadow: var(--raise-lg) }
-:root[data-style="yasny"] .empty,
-:root[data-style="yasny"] .modelEmpty { background: var(--surface); border: 0; box-shadow: var(--inset) }
-:root[data-style="yasny"] .resultBox,
-:root[data-style="yasny"] .aiOutput,
-:root[data-style="yasny"] .notice { background: var(--ground); border-color: transparent; box-shadow: var(--inset) }
-
-/* The floating pill leaves a gutter beneath it, and scrolling content was
-   visible sliding through that gap. This strip fills it with the ground. */
+/* The pill leaves a gutter; fill it so content does not slide through. */
 :root[data-style="yasny"] .app::after {
   content: "";
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 39;
@@ -1148,33 +1199,59 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   pointer-events: none;
 }
 
-/* Vivid icon tiles. objectVariant() already assigns v0..v4 deterministically
-   from the item id, so each note or source keeps the same colour for good. */
+:root[data-style="yasny"] .fab {
+  bottom: calc(var(--nav-h) + var(--safe-b) + 24px);
+  width: 58px; height: 58px;
+  box-shadow: var(--shadow-3);
+}
+:root[data-style="yasny"] .main { padding-bottom: calc(var(--nav-h) + var(--safe-b) + 96px); }
+:root[data-style="yasny"] .toast { bottom: calc(var(--nav-h) + var(--safe-b) + 96px); }
+:root[data-style="yasny"] .header {
+  background: color-mix(in srgb, var(--ground) 72%, transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+:root[data-style="yasny"] .resultBox,
+:root[data-style="yasny"] .aiOutput,
+:root[data-style="yasny"] .notice,
+:root[data-style="yasny"] .healthGrid > div,
+:root[data-style="yasny"] .modelMeta code,
+:root[data-style="yasny"] .tag {
+  background: var(--surface-2);
+  border: 1px solid var(--glass-edge);
+}
+:root[data-style="yasny"] .empty,
+:root[data-style="yasny"] .modelEmpty { border-style: dashed; border-color: var(--line-strong); }
+
+/* Icon tiles keep their colour: objectVariant() derives v0..v4 from the item
+   id, so a note holds the same tile colour permanently. */
 :root[data-style="yasny"] .knowledgeObject,
 :root[data-style="yasny"] .semanticObject,
 :root[data-style="yasny"] .unifiedSourceIcon,
 :root[data-style="yasny"] .metricIcon,
 :root[data-style="yasny"] .reviewOrb {
+  width: var(--sq); height: var(--sq);
   border-radius: var(--r-sm);
   color: #fff;
   background: var(--tile, var(--accent));
-  box-shadow: 0 6px 14px -4px color-mix(in srgb, var(--tile, var(--accent)) 55%, transparent);
+  box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--tile, var(--accent)) 50%, transparent);
 }
 :root[data-style="yasny"] .v0 { --tile: #5b5bd6 }
 :root[data-style="yasny"] .v1 { --tile: #0b8a5f }
 :root[data-style="yasny"] .v2 { --tile: #cc4a05 }
 :root[data-style="yasny"] .v3 { --tile: #0a7ea4 }
 :root[data-style="yasny"] .v4 { --tile: #b5179e }
-:root[data-style="yasny"] .captureChoices button .appIcon,
-:root[data-style="yasny"] .quickActionsFlat button .appIcon {
-  width: 42px; height: 42px; font-size: 21px;
+:root[data-style="yasny"] .quickActionsFlat button .appIcon,
+:root[data-style="yasny"] .captureChoices button .appIcon {
+  width: var(--sq); height: var(--sq); font-size: 21px;
   border-radius: var(--r-sm); color: #fff; background: var(--accent);
-  box-shadow: 0 6px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent);
 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #5b5bd6; box-shadow: 0 6px 14px -4px rgba(91,91,214,.55) }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #0b8a5f; box-shadow: 0 6px 14px -4px rgba(11,138,95,.55) }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #cc4a05; box-shadow: 0 6px 14px -4px rgba(204,74,5,.55) }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #0a7ea4; box-shadow: 0 6px 14px -4px rgba(10,126,164,.55) }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #5b5bd6 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #0b8a5f }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #cc4a05 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #0a7ea4 }
 
 @media (min-width: 900px) {
   :root[data-style="yasny"] .main { padding-bottom: calc(var(--pad) + 40px) }
