@@ -9,7 +9,7 @@
 // degradation is real search, not a heuristic dressed up as one.
 
 import { chunkSections, chunkText } from './ingest.js'
-import { embedInBatches } from './embeddings.js'
+import { embedWithSettings } from './model-runtime.js'
 import { instagramSearchSections } from './instagram-analysis.js'
 import { saveSourceWithChunks } from './source-db.js'
 
@@ -37,9 +37,11 @@ export async function indexSourceRecord(source, settings = {}) {
   let indexError = null
   let prepared = chunks
 
-  if (settings?.embedEndpoint) {
+  // A registry model with the embed role, or the legacy endpoint — whichever
+  // is configured. Neither means lexical-only, reported honestly as indexMode.
+  if (settings?.embedEndpoint || (settings?.models || []).some(m => m.roles?.includes('embed'))) {
     try {
-      const vectors = await embedInBatches(settings.embedEndpoint, chunks.map(chunk => chunk.text))
+      const vectors = await embedWithSettings(settings, chunks.map(chunk => chunk.text))
       if (vectors.length === chunks.length && vectors.every(v => Array.isArray(v) && v.length)) {
         prepared = chunks.map((chunk, i) => ({ ...chunk, vector: vectors[i] }))
         indexMode = 'vector'

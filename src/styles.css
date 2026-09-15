@@ -142,15 +142,15 @@
        --r-*      one radius ladder; nothing invents its own value
   */
   --ground: #eef1f8;
-  --tint-1: rgba(124, 110, 240, .20);
-  --tint-2: rgba(56, 150, 240, .17);
-  --tint-3: rgba(45, 200, 170, .13);
+  --tint-1: rgba(118, 104, 244, .28);
+  --tint-2: rgba(48, 146, 244, .24);
+  --tint-3: rgba(38, 202, 172, .18);
 
-  --surface: rgba(255, 255, 255, .62);
-  --surface-2: rgba(255, 255, 255, .45);
-  --surface-3: rgba(255, 255, 255, .78);
-  --glass-blur: 22px;
-  --glass-edge: rgba(255, 255, 255, .7);
+  --surface: rgba(255, 255, 255, .66);
+  --surface-2: rgba(255, 255, 255, .48);
+  --surface-3: rgba(255, 255, 255, .82);
+  --glass-blur: 24px;
+  --glass-edge: rgba(255, 255, 255, .78);
   --glass-top: rgba(255, 255, 255, .95);
 
   --ink: #101828;
@@ -174,9 +174,9 @@
   --r-lg: 26px;
   --r-pill: 999px;
 
-  --shadow-1: 0 2px 8px rgba(16, 24, 40, .06);
-  --shadow-2: 0 8px 24px -8px rgba(16, 24, 40, .16);
-  --shadow-3: 0 24px 56px -18px rgba(16, 24, 40, .28);
+  --shadow-1: 0 1px 3px rgba(16, 24, 40, .05);
+  --shadow-2: 0 4px 14px -4px rgba(16, 24, 40, .1), 0 12px 32px -12px rgba(16, 24, 40, .12);
+  --shadow-3: 0 8px 24px -6px rgba(16, 24, 40, .14), 0 28px 64px -20px rgba(16, 24, 40, .22);
 
   --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font);
@@ -278,8 +278,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .page { display: flex; flex-direction: column; gap: calc(var(--gap) * 1.6); animation: fadeIn var(--ms) var(--ease) both; }
 /* An empty container still consumes a flex gap, which showed up as a stray
-   ~35px hole between the search row and the notes list. */
-.page > :empty, .chips:empty, .tags:empty { display: none }
+   ~35px hole between the search row and the notes list.
+   Named containers only: `:empty` also matches void elements, and `.page > :empty`
+   hid every bare <input> on a page — the search field among them. */
+.chips:empty, .tags:empty, .notebookViews:empty, .sourceProviderFilters:empty { display: none }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
 .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -1040,10 +1042,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   position: fixed; inset: -20%;
   z-index: -1; pointer-events: none;
   background:
-    radial-gradient(42% 32% at 12% 6%, var(--tint-1), transparent 70%),
-    radial-gradient(40% 30% at 88% 16%, var(--tint-2), transparent 70%),
-    radial-gradient(48% 36% at 62% 84%, var(--tint-3), transparent 72%);
-  filter: blur(28px);
+    radial-gradient(58% 44% at 8% 0%, var(--tint-1), transparent 66%),
+    radial-gradient(54% 42% at 96% 12%, var(--tint-2), transparent 66%),
+    radial-gradient(64% 50% at 58% 92%, var(--tint-3), transparent 68%);
+  filter: blur(36px) saturate(120%);
 }
 
 :root[data-style="yasny"] .card,
@@ -1190,12 +1192,19 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .bottomNav button.active .appIcon {
   background: var(--accent); color: var(--accent-ink);
 }
-/* The pill leaves a gutter; fill it so content does not slide through. */
+/* A floating pill does not span the width, so scrolling content slid past it
+   down both margins and through the gutter below. A scrim behind the whole nav
+   zone fades content into the ground before it reaches the bar. */
 :root[data-style="yasny"] .app::after {
   content: "";
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 39;
-  height: calc(var(--safe-b) + 14px);
-  background: var(--ground);
+  height: calc(var(--nav-h) + var(--safe-b) + 26px);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ground) 0%, transparent) 0%,
+    color-mix(in srgb, var(--ground) 82%, transparent) 42%,
+    var(--ground) 72%
+  );
   pointer-events: none;
 }
 

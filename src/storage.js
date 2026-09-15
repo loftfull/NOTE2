@@ -7,12 +7,15 @@ export const defaultSettings = {
   language: 'ru',
   fontScale: 'normal',
   density: 'compact',
-  aiEndpoint: '/api/ai',
-  embedEndpoint: '/api/embed',
-  visionEndpoint: '/api/vision',
-  transcribeEndpoint: '/api/transcribe',
-  youtubeEndpoint: '/api/youtube',
-  syncEndpoint: '/api/sync',
+  // Empty, not '/api/...': the gateway is optional now that models are called
+  // directly, and a preset path nobody serves means a guaranteed failed request
+  // on every import. Empty reads as "not configured" everywhere.
+  aiEndpoint: '',
+  embedEndpoint: '',
+  visionEndpoint: '',
+  transcribeEndpoint: '',
+  youtubeEndpoint: '',
+  syncEndpoint: '',
   syncWorkspaceId: 'default',
   syncToken: '',
   syncRevision: 0,

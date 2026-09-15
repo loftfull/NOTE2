@@ -29,15 +29,22 @@ async function postBinary(endpoint, file, maxBytes, extraHeaders = {}) {
   return response.json()
 }
 
-export function transcribeMediaFile(file, endpoint = '/api/transcribe') {
-  return postBinary(endpoint, file, DEFAULT_MAX_UPLOAD)
+function requireEndpoint(endpoint, what) {
+  const value = String(endpoint || '').trim()
+  if (!value) throw new Error(`${what} не настроен. Укажите адрес сервера в Профиле.`)
+  return value
 }
 
-export function analyzeVisualFile(file, endpoint = '/api/vision') {
-  return postBinary(endpoint, file, DEFAULT_MAX_VISUAL)
+export function transcribeMediaFile(file, endpoint) {
+  return postBinary(requireEndpoint(endpoint, 'Сервис расшифровки'), file, DEFAULT_MAX_UPLOAD)
 }
 
-export async function ingestYoutube(url, endpoint = '/api/youtube') {
+export function analyzeVisualFile(file, endpoint) {
+  return postBinary(requireEndpoint(endpoint, 'Сервис распознавания изображений'), file, DEFAULT_MAX_VISUAL)
+}
+
+export async function ingestYoutube(url, rawEndpoint) {
+  const endpoint = requireEndpoint(rawEndpoint, 'Сервис YouTube')
   const response = await authenticatedFetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

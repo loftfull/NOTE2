@@ -13,3 +13,11 @@ export function pluralRu(count, one, few, many) {
 export function notesLabel(count) {
   return `${count} ${pluralRu(count, 'заметка', 'заметки', 'заметок')}`
 }
+
+export function resultsLabel(count) {
+  return `${count} ${pluralRu(count, 'результат', 'результата', 'результатов')}`
+}
+
+export function sourcesLabel(count) {
+  return `${count} ${pluralRu(count, 'источник', 'источника', 'источников')}`
+}

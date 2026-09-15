@@ -6,6 +6,7 @@
 // and the call sites say what they want rather than how to get it.
 
 import { runAiTask } from './ai.js'
+import { embedTextsWith } from './providers.js'
 import { MODEL_ROLES, selectModel } from './models.js'
 import { getCredential } from './secure-credentials.js'
 
@@ -38,6 +39,26 @@ export async function runTask(settings = {}, { action, input, system, history, r
     history,
     signal
   })
+}
+
+/**
+ * Embed text using the registry's embed model, falling back to the legacy
+ * gateway endpoint. Returns [] when neither is configured, which callers must
+ * read as "no vectors", never as "empty vectors".
+ */
+export async function embedWithSettings(settings = {}, inputs = []) {
+  const resolved = await resolveModel(settings, MODEL_ROLES.embed)
+  if (resolved) {
+    return embedTextsWith({ ...resolved.modelRecord, apiKey: resolved.apiKey }, inputs)
+  }
+  if (!settings.embedEndpoint) return []
+  const { embedInBatches } = await import('./embeddings.js')
+  return embedInBatches(settings.embedEndpoint, inputs)
+}
+
+/** True when vectors can actually be produced for search or indexing. */
+export function hasEmbedRoute(settings = {}) {
+  return Boolean(selectModel(settings.models, MODEL_ROLES.embed, settings.activeModelId) || settings.embedEndpoint)
 }
 
 /** True when anything at all can answer — used to disable AI affordances. */
