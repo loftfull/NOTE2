@@ -385,7 +385,51 @@ img, svg, video, canvas { max-width: 100%; }
   min-height: auto;
   padding: 0;
   background: transparent;
+  /* Without this the select beside it wins the space and the placeholder is
+     clipped mid-word. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
+.searchRow .select {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 28px 0 10px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+}
+
+/* Horizontal filter row for the notes library. */
+.notebookViews {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.notebookViews::-webkit-scrollbar { display: none; }
+.notebookViews button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notebookViews button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
 .searchRow .input:focus, .sourceLibrarySearch .input:focus { border: 0; }
 
 .segmented {
@@ -719,7 +763,7 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* ---------- notes ---------- */
 
-.notesList, .notebookViews, .searchSourceList, .unifiedSourceList, .jobList, .transcriptList, .evidenceList {
+.notesList, .searchSourceList, .unifiedSourceList, .jobList, .transcriptList, .evidenceList {
   display: flex;
   flex-direction: column;
   gap: 8px;
