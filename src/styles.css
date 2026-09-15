@@ -190,7 +190,10 @@ img, svg, video, canvas { max-width: 100%; }
   gap: 12px;
   height: calc(var(--header-h) + var(--safe-t));
   padding: var(--safe-t) var(--pad) 0;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* Near-opaque like the tab bar: content scrolling under a sticky header
+     stayed legible through it, and Android WebView support for
+     backdrop-filter is not something to rely on for legibility. */
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
   backdrop-filter: saturate(180%) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid var(--line);
@@ -471,6 +474,9 @@ img, svg, video, canvas { max-width: 100%; }
 /* Full width, no floating capsule, ~82px including safe area. */
 
 .bottomNav {
+  /* Opaque enough that content scrolling underneath does not read through it;
+     the 76% glass used elsewhere let text show through the tab bar. */
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
   position: fixed;
   left: 0;
   right: 0;
@@ -579,11 +585,15 @@ img, svg, video, canvas { max-width: 100%; }
 .captureTitle { font-size: var(--t-section); font-weight: 700; margin-bottom: 4px; }
 .captureHint { font-size: var(--t-secondary); color: var(--text-2); margin-bottom: 12px; }
 
-.captureChoices, .captureGrid, .quickActionsFlat {
+.captureChoices, .captureGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   gap: 10px;
 }
+
+/* Four fixed columns: auto-fit left a 3 + 1 orphan at phone widths. */
+.quickActionsFlat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quickActionsFlat button { min-height: 76px; padding: 10px 4px; font-size: var(--t-caption); gap: 6px; }
 
 .captureChoices button, .quickActionsFlat button {
   display: flex;
@@ -660,7 +670,9 @@ img, svg, video, canvas { max-width: 100%; }
 .todayPage, .todaySection { display: flex; flex-direction: column; gap: var(--gap); }
 .dailyMeta { font-size: var(--t-caption); color: var(--text-2); font-weight: 600; }
 .dailySurface { display: flex; flex-direction: column; gap: 6px; }
-.todayCompactHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.todayCompactHeader { display: flex; flex-direction: column; gap: 4px; }
+.todayCompactHeader h1 { font-size: var(--t-display); line-height: 1.2; }
+.todayCompactHeader p { font-size: var(--t-control); color: var(--text-2); line-height: 1.45; }
 
 .continueRail {
   display: flex;
@@ -682,7 +694,19 @@ img, svg, video, canvas { max-width: 100%; }
   cursor: pointer;
   text-align: left;
 }
-.continueText { font-size: var(--t-secondary); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.continueText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.continueText strong { font-size: var(--t-secondary); color: var(--text); font-weight: 650; }
+.continueText span {
+  font-size: var(--t-caption);
+  color: var(--text-2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.continueText small { font-size: var(--t-caption); color: var(--text-2); font-weight: 600; }
 
 .todayReview, .reviewSurface { display: flex; flex-direction: column; gap: 10px; }
 .reviewItem { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -949,7 +973,7 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* ---------- dropzone ---------- */
 
-.dropzone, .compactDrop, .knowledgeCapture {
+.dropzone, .compactDrop {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -964,6 +988,7 @@ img, svg, video, canvas { max-width: 100%; }
   cursor: pointer;
 }
 .dropzone:hover, .compactDrop:hover { border-color: var(--accent); background: var(--surface-2); }
+.knowledgeCapture { background: var(--accent); color: var(--accent-ink); }
 
 /* ---------- ornamental objects ---------- */
 /* Deterministic, non-data-bearing decoration (UI_IMPLEMENTATION_DELTA_2026). */
