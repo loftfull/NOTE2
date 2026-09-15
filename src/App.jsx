@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from './icons.jsx'
 import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
-import { runAiTask, semanticScore } from './ai.js'
+import { AI_ORIGIN, aiResultText, runAiTask, semanticScore } from './ai.js'
 import { chunkText, parseLocalFile } from './ingest.js'
 import { clearSourceDb, deleteSource, listChunks, listSources, replaceSourcesWithChunks, saveSourceWithChunks, updateSourceMetadata } from './source-db.js'
 import { buildEvidence, groundedPrompt, localGroundedAnswer, rankChunks } from './rag.js'
@@ -166,8 +166,8 @@ function InstagramPostViewer({source,settings,onSourceUpdated,onBatchSourceUpdat
     if(!input){return}
     setAnalysisMode(mode);setAnalysisBusy(mode)
     try{
-      const output=await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:instagramAnalysisAction(mode),input,system:instagramAnalysisSystem(mode)})
-      await onInsightUpdated?.(mode,output)
+      const result=await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:instagramAnalysisAction(mode),input,system:instagramAnalysisSystem(mode)})
+      await onInsightUpdated?.(mode,aiResultText(result))
     }finally{setAnalysisBusy('')}
   }
   const buildStructured=async()=>{
@@ -178,8 +178,8 @@ function InstagramPostViewer({source,settings,onSourceUpdated,onBatchSourceUpdat
       const input=instagramEvidenceDocument(source)
       if(input&&settings?.aiEndpoint){
         try{
-          const output=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:`instagram-structured-${fallback.type}`,input,system:structuredExtractionSystem(fallback.type)})
-          const parsed=parseStructuredKnowledgeOutput(output,null)
+          const result=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:`instagram-structured-${fallback.type}`,input,system:structuredExtractionSystem(fallback.type)})
+          const parsed=result.origin===AI_ORIGIN.model?parseStructuredKnowledgeOutput(result.text,null):null
           if(parsed)structured=normalizeStructuredKnowledge({...parsed,generatedBy:'ai'},source)
         }catch{}
       }
@@ -321,7 +321,7 @@ function SourcePreview({selection,onClose,settings,onSourceUpdated,onBatchSource
   const evidence=sourceViewerEvidence(source)
   const description=sourceDescriptionText(source)||'Описание отсутствует.'
   const linkedNotes=(notes||[]).filter(note=>String(note.content||'').includes(`source:${source.id}`)||source.url&&String(note.content||'').includes(source.url))
-  const makeSummary=async()=>{const input=sourceViewerPrompt(source);if(!input)return;setSummaryBusy(true);try{const out=await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:'source-brief',input,system:'Сделай краткую выжимку только из предоставленных фрагментов. Пиши на русском. Для каждого существенного тезиса используй ссылки [S1], [S2] и т.д. Не добавляй внешние факты и не выдумывай содержимое отсутствующих фрагментов.'});setSummary(out);await onSummaryUpdated?.(source,out)}finally{setSummaryBusy(false)}}
+  const makeSummary=async()=>{const input=sourceViewerPrompt(source);if(!input)return;setSummaryBusy(true);try{const out=aiResultText(await runAiTask({endpoint:settings?.aiEndpoint,model:settings?.aiModel,action:'source-brief',input,system:'Сделай краткую выжимку только из предоставленных фрагментов. Пиши на русском. Для каждого существенного тезиса используй ссылки [S1], [S2] и т.д. Не добавляй внешние факты и не выдумывай содержимое отсутствующих фрагментов.'}));setSummary(out);await onSummaryUpdated?.(source,out)}finally{setSummaryBusy(false)}}
   const openEvidence=item=>{setActiveLocator(item?.locator||null);setTab('text')}
   const renderMedia=()=>{
     if(provider==='instagram')return <InstagramSourceRenderer source={source} locator={activeLocator}/>
@@ -540,7 +540,7 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
   }
   const applyTemplate=(key)=>{if(content.trim()&&!confirm('Заменить текущий текст выбранным шаблоном?'))return;setContent(templates[key]||'')}
   const backlinks=workspace.notes.filter(n=>n.id!==editingId&&title.trim()&&n.content?.includes(`[[${title.trim()}]]`))
-  const ai=async action=>{setLoading(true);setAiOpen(true);setAiOut(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input:content,system:'Работай только с предоставленной заметкой. Сохраняй факты и явно отмечай неопределённость. Отвечай по-русски.'}));setLoading(false)}
+  const ai=async action=>{setLoading(true);setAiOpen(true);setAiOut(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input:content,system:'Работай только с предоставленной заметкой. Сохраняй факты и явно отмечай неопределённость. Отвечай по-русски.'})));setLoading(false)}
   return <div className="editor"><div className="editorTop"><button className="iconBtn" onClick={()=>navigate('library')} aria-label="Назад"><Icon name="arrow_back"/></button><input className="titleInput" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название заметки"/><span className="tiny subtle">{status}</span><button className={`iconBtn ${note.pinned?'isActive':''}`} onClick={()=>updateFlag('pinned')} aria-label="Закрепить"><Icon name="push_pin"/></button><button className={`iconBtn ${note.favorite?'isActive':''}`} onClick={()=>updateFlag('favorite')} aria-label="В избранное"><Icon name="star"/></button><button className="iconBtn" onClick={()=>setAiOpen(v=>!v)} aria-label="Инструменты AI"><Icon name="auto_awesome"/></button></div>
     <div className="editorCommandBar glass" aria-label="Инструменты заметки">
       <button onClick={()=>insertLine('# Заголовок')}><Icon name="title" size={20}/><span>Заголовок</span></button>
@@ -564,7 +564,7 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
 function Chat({settings}){
   const[role,setRole]=useState(expertRoles[0]);const[messages,setMessages]=useState([]);const[input,setInput]=useState('');const[loading,setLoading]=useState(false);const end=useRef(null)
   useEffect(()=>end.current?.scrollIntoView({behavior:'smooth'}),[messages,loading])
-  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'chat',input:q,system:role.system,history:next.slice(-10)});setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
+  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'chat',input:q,system:role.system,history:next.slice(-10)}));setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
   return <div className="chatShell"><div className="roleBar"><div className="chips">{expertRoles.map(r=><button className={`chip ${role.id===r.id?'active':''}`} key={r.id} onClick={()=>setRole(r)}><Icon name={r.icon} size={15}/> {r.name}</button>)}</div></div><div className="messages">{!messages.length&&<div className="empty"><div className="metricIcon" style={{margin:'0 auto 10px'}}><Icon name={role.icon}/></div><strong>{role.name} workspace</strong><p className="small" style={{marginTop:5}}>Подключённый AI работает через ваш сервер. Без него NOTE2 продолжает работать в локальном режиме.</p></div>}{messages.map((m,i)=><div key={i} className={`bubble ${m.role==='user'?'user':'ai'}`}>{m.content}</div>)}{loading&&<div className="bubble ai">Думаю…</div>}<div ref={end}/></div><div className="composer"><Input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}} placeholder={`Спросить ${role.name}…`}/><Button icon="send" onClick={send} disabled={!input.trim()||loading}>Отправить</Button></div></div>
 }
 
@@ -806,8 +806,8 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
       if(!refs.length){setAnswer('No relevant evidence was found in the indexed sources.');return}
       const prompt=groundedPrompt(q,refs)
       if(settings.aiEndpoint){
-        const out=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
-        setAnswer(out)
+        const result=await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
+        setAnswer(result.origin===AI_ORIGIN.model?result.text:`${aiResultText(result)}\n\n${localGroundedAnswer(q,refs)}`)
       }else setAnswer(localGroundedAnswer(q,refs))
     }catch(err){setAnswer(`Ошибка анализа: ${err.message}`)}finally{setBusy(false)}
   }
@@ -835,7 +835,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
 
 function Studio({settings}){
   const[action,setAction]=useState('summarize');const[input,setInput]=useState('');const[out,setOut]=useState('');const[loading,setLoading]=useState(false);const tools=[['summarize','Summarize','summarize'],['keywords','Keywords','tag'],['improve','Clean up','auto_fix_high'],['title','Generate title','title']]
-  const run=async()=>{setLoading(true);setOut(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input,system:'Transform the supplied content without inventing facts.'}));setLoading(false)}
+  const run=async()=>{setLoading(true);setOut(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action,input,system:'Transform the supplied content without inventing facts.'})));setLoading(false)}
   return <div className="page"><h1 className="headline">Studio</h1><p className="subtle" style={{marginTop:5}}>Reusable transformations for notes and imported content.</p><div className="split" style={{marginTop:16}}>{tools.map(([id,label,icon])=><button key={id} className={`card ${action===id?'':''}`} style={{textAlign:'left',borderColor:action===id?'var(--brand)':'var(--line)'}} onClick={()=>setAction(id)}><div className="row gap12"><div className="metricIcon"><Icon name={icon}/></div><strong>{label}</strong></div></button>)}</div><Textarea style={{marginTop:14}} value={input} onChange={e=>setInput(e.target.value)} placeholder="Content…"/><div style={{marginTop:10}}><Button icon="auto_awesome" onClick={run} disabled={!input.trim()||loading}>{loading?'Working…':'Run'}</Button></div>{out&&<Card className="resultBox" style={{marginTop:14}}>{out}</Card>}</div>
 }
 
@@ -955,7 +955,7 @@ function YouTube({settings,setToast}){
   }
   const analyze=async()=>{
     if(!video?.transcript)return
-    setLoading(true);setAnalysis(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'youtube-analysis',input:`TITLE: ${video.title}\nCHANNEL: ${video.channel}\n\nTRANSCRIPT:\n${video.transcript}`,system:'Analyze only the supplied title/channel/transcript. Do not add video facts, timestamps or claims that are not present.'}));setLoading(false)
+    setLoading(true);setAnalysis(aiResultText(await runAiTask({endpoint:settings.aiEndpoint,model:settings.aiModel,action:'youtube-analysis',input:`TITLE: ${video.title}\nCHANNEL: ${video.channel}\n\nTRANSCRIPT:\n${video.transcript}`,system:'Analyze only the supplied title/channel/transcript. Do not add video facts, timestamps or claims that are not present.'})));setLoading(false)
   }
 
   return <div className="page">

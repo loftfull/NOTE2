@@ -86,20 +86,98 @@ ${summary || 'Недостаточно извлечённого текста.'}
   return `Local mode is active. I can summarize, extract keywords and organize text without sending data to a server. Connect the server AI endpoint in Settings for model-backed answers.\n\nInput preview: ${text.slice(0, 500)}`
 }
 
-export async function runAiTask({ endpoint, model, action, input, system, history }) {
-  if (!endpoint) return localFallback({ action, input })
+export const AI_ORIGIN = { model: 'model', local: 'local', error: 'error' }
+
+// How long to wait before giving up on the gateway. Without this a hung
+// connection leaves the caller spinning until the platform's own timeout.
+const AI_TIMEOUT_MS = 60_000
+
+function localResult(action, input) {
+  return { text: localFallback({ action, input }), origin: AI_ORIGIN.local, action, error: null }
+}
+
+// Reads the failure without letting the body become user-facing content. An
+// HTML error page or a proxy response would otherwise reach the UI as
+// "Unexpected token '<'", or worse, be rendered as if it were an answer.
+async function describeFailure(response) {
+  const type = response.headers.get('content-type') || ''
+  if (!type.includes('application/json')) {
+    return `Шлюз ответил не JSON (${response.status}, ${type.split(';')[0] || 'без типа'}).`
+  }
+  try {
+    const data = await response.json()
+    return data?.error || data?.message || `Шлюз вернул ${response.status}.`
+  } catch {
+    return `Шлюз вернул ${response.status} с некорректным JSON.`
+  }
+}
+
+/**
+ * Run an AI task, fail-closed.
+ *
+ * Returns { text, origin, action, error } where origin is:
+ *   'model' — the configured gateway answered;
+ *   'local' — no gateway is configured, so this is local extraction only;
+ *   'error' — a gateway IS configured but the call failed. text is empty.
+ *
+ * The 'error' case deliberately does NOT fall back to local extraction. The
+ * old behaviour caught every failure and returned heuristic text that was
+ * indistinguishable from a model answer, so a user whose gateway was down
+ * could not tell that nothing had been analysed. Callers must decide what to
+ * show; they must never present 'local' or 'error' output as a model result.
+ */
+export async function runAiTask({ endpoint, model, action, input, system, history, signal }) {
+  if (!endpoint) return localResult(action, input)
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), AI_TIMEOUT_MS) : null
+  if (signal && controller) signal.addEventListener('abort', () => controller.abort(), { once: true })
+
   try {
     const response = await authenticatedFetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, action, input, system, history })
+      body: JSON.stringify({ model, action, input, system, history }),
+      signal: controller?.signal
     })
-    if (!response.ok) throw new Error(`AI endpoint returned ${response.status}`)
-    const data = await response.json()
+    if (!response.ok) return { text: '', origin: AI_ORIGIN.error, action, error: await describeFailure(response) }
+
+    const type = response.headers.get('content-type') || ''
+    if (!type.includes('application/json')) {
+      // The usual shape of a misconfigured native build: a relative /api/ai
+      // resolves against the WebView origin and returns index.html.
+      return { text: '', origin: AI_ORIGIN.error, action, error: `Шлюз ответил не JSON (${type.split(';')[0] || 'без типа'}). Проверьте адрес AI-шлюза.` }
+    }
+
+    let data
+    try {
+      data = await response.json()
+    } catch {
+      return { text: '', origin: AI_ORIGIN.error, action, error: 'Шлюз вернул некорректный JSON.' }
+    }
+
     const text = data.output || data.text || data.message
-    if (!text) throw new Error('AI endpoint returned no output')
-    return text
-  } catch {
-    return localFallback({ action, input })
+    if (!text) return { text: '', origin: AI_ORIGIN.error, action, error: 'Шлюз не вернул текст ответа.' }
+    return { text, origin: AI_ORIGIN.model, action, model: data.model || model || null, error: null }
+  } catch (error) {
+    const aborted = error?.name === 'AbortError'
+    return {
+      text: '',
+      origin: AI_ORIGIN.error,
+      action,
+      error: aborted ? 'Превышено время ожидания AI-шлюза.' : `Не удалось связаться с AI-шлюзом: ${error?.message || 'сеть недоступна'}.`
+    }
+  } finally {
+    if (timer) clearTimeout(timer)
   }
+}
+
+// Convenience for call sites that only render text. Local output is labelled
+// so it can never be read as a model answer, and a failure surfaces as an
+// explicit message rather than silently becoming content.
+export function aiResultText(result) {
+  if (!result) return ''
+  if (result.origin === AI_ORIGIN.model) return result.text
+  if (result.origin === AI_ORIGIN.local) return `⚠️ Локальный режим (AI-шлюз не подключён). Только извлечение из текста, без модели.\n\n${result.text}`
+  return `⚠️ AI недоступен. ${result.error || ''}`.trim()
 }
