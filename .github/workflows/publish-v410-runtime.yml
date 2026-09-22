@@ -1,0 +1,58 @@
+name: Publish NOTE2 v4.10 runtime
+
+on:
+  push:
+    branches:
+      - runtime/v4.10
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: runtime/v4.10
+          fetch-depth: 0
+
+      - name: Download and verify v4.10 source
+        env:
+          SOURCE_URL: "https://sdmntprwestus3.oaiusercontent.com/files/00000000-9038-81fd-ba72-ae8d0030f1c0/raw?se=2026-08-23T12%3A10%3A03Z&sp=r&sv=2026-02-06&sr=b&scid=c93fcdd9-dec1-54b6-ac6d-a6c65ea673ca&skoid=2d2fbb03-9efb-4ad0-a91c-1db2f5a47997&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-22T23%3A36%3A32Z&ske=2026-08-23T23%3A36%3A32Z&sks=b&skv=2026-02-06&sig=H4yE%2B%2BQnN34UaoS8jhbyJjNBPQsR9hKixUJ5c8wIRpo%3D"
+          EXPECTED_SHA: "abb7fb93e76462983b6625d13f38b1ffb834f50670635e67985a19045fe1f2d2"
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 "$SOURCE_URL" -o /tmp/note2-v410.zip
+          echo "$EXPECTED_SHA  /tmp/note2-v410.zip" | sha256sum -c -
+          rm -rf /tmp/note2-v410
+          mkdir -p /tmp/note2-v410
+          unzip -q /tmp/note2-v410.zip -d /tmp/note2-v410
+          test -f /tmp/note2-v410/note2_v410_work/package.json
+          test -f /tmp/note2-v410/note2_v410_work/src/App.jsx
+          test -f /tmp/note2-v410/note2_v410_work/src/styles.css
+          test -f /tmp/note2-v410/note2_v410_work/server.mjs
+
+      - name: Replace branch contents with v4.10 runtime
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name .github -exec rm -rf {} +
+          cp -a /tmp/note2-v410/note2_v410_work/. .
+          rm -rf scripts/__pycache__ .note2-upload
+          rm -f .github/workflows/publish-v410-runtime.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          test -f package.json
+          test -f src/App.jsx
+          test -f src/styles.css
+          test -f server.mjs
+
+      - name: Commit runtime source
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: NOTE2 v4.10 runtime source"
+          git push origin HEAD:runtime/v4.10
