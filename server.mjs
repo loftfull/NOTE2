@@ -23,9 +23,10 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 
-import { loadConfig } from './server/config.mjs'
+import { aiConfigured, embedConfigured, loadConfig, transcribeConfigured, visionConfigured } from './server/config.mjs'
 import { HttpError, describeError, matchPath, readJson, sendError, sendJson } from './server/http.mjs'
 import { handleSourceUrl } from './server/routes/source-url.mjs'
+import { handleYoutube } from './server/routes/youtube.mjs'
 
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -108,13 +109,26 @@ function buildRoutes(config, deps = {}) {
         time: new Date().toISOString(),
         // Reports which capabilities are actually wired, so the client can
         // show the truth instead of offering a button that cannot work.
-        capabilities: deps.capabilities ? deps.capabilities(config) : {}
+        capabilities: {
+          sourceUrl: true,
+          youtube: true,
+          ai: aiConfigured(config),
+          embed: embedConfigured(config),
+          vision: visionConfigured(config),
+          transcribe: transcribeConfigured(config),
+          instagram: Boolean(config.instagram.command)
+        }
       })
     },
     {
       method: 'POST',
       path: '/api/source-url',
       handler: async ctx => handleSourceUrl(ctx)
+    },
+    {
+      method: 'POST',
+      path: '/api/youtube',
+      handler: async ctx => handleYoutube(ctx)
     }
   ]
 }

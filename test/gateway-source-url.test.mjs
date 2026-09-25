@@ -193,3 +193,34 @@ test('/api/source-url surfaces an upstream error status', async () => {
     )
   } finally { server.close() }
 })
+
+test('/api/health reports which capabilities are actually wired', async () => {
+  // The client must be able to hide a button it cannot honour. An
+  // unconfigured route reports false here rather than failing at use time.
+  await withGateway({}, async base => {
+    const { capabilities } = await (await fetch(`${base}/api/health`)).json()
+    assert.equal(capabilities.sourceUrl, true, 'URL ingestion needs no configuration')
+    assert.equal(capabilities.youtube, true, 'captions need no configuration')
+    assert.equal(capabilities.ai, false, 'no model configured in this environment')
+    assert.equal(capabilities.vision, false)
+    assert.equal(capabilities.transcribe, false)
+  })
+
+  await withGateway({ NOTE2_AI_BASE_URL: 'https://api.example/v1', NOTE2_AI_MODEL: 'test-model' }, async base => {
+    const { capabilities } = await (await fetch(`${base}/api/health`)).json()
+    assert.equal(capabilities.ai, true, 'a base URL plus a model makes AI available')
+    assert.equal(capabilities.embed, false, 'embeddings need their own model name')
+  })
+})
+
+test('POST /api/youtube is routed and validates its input', async () => {
+  await withGateway({}, async base => {
+    const response = await fetch(`${base}/api/youtube`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/not-youtube' })
+    })
+    assert.equal(response.status, 400)
+    assert.match((await response.json()).error, /не похоже на ссылку YouTube/)
+  })
+})
