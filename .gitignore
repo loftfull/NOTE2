@@ -7,3 +7,6 @@ data/
 
 # Gateway runtime state (accounts, synced snapshots, uploads)
 .note2-data/
+
+# Сборка стенда проверки PDF
+.probe-dist/

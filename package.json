@@ -15,16 +15,17 @@
     "android:prepare": "node scripts/prepare-android.mjs"
   },
   "dependencies": {
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "pdfjs-dist": "^5.7.284",
-    "@capacitor/core": "^8.0.0",
     "@capacitor/android": "^8.0.0",
-    "@capgo/capacitor-share-target": "8.0.48"
+    "@capacitor/core": "^8.0.0",
+    "@capgo/capacitor-share-target": "8.0.48",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
     "@vitejs/plugin-react": "^6.0.4",
-    "vite": "^8.1.0",
-    "@capacitor/cli": "^8.0.0"
+    "fake-indexeddb": "^6.2.5",
+    "vite": "^8.1.0"
   }
 }
