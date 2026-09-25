@@ -38,6 +38,7 @@ import {
   createUploadManager, handleUploadChunk, handleUploadDelete, handleUploadInit,
   handleUploadStatus, handleUploadTranscribe
 } from './server/routes/uploads.mjs'
+import { handleInstagram, handleInstagramMedia } from './server/routes/instagram.mjs'
 import { createStore } from './server/store.mjs'
 
 const STATIC_TYPES = {
@@ -174,6 +175,15 @@ function buildRoutes(config, deps = {}) {
     // rawBody: the file is the body, so it must not be parsed as JSON.
     { method: 'POST', path: '/api/vision', rawBody: true, handler: async ctx => handleVision(ctx) },
     { method: 'POST', path: '/api/transcribe', rawBody: true, handler: async ctx => handleTranscribe(ctx) },
+
+    // Instagram, through an external fetcher the operator configures.
+    { method: 'POST', path: '/api/instagram', handler: async ctx => handleInstagram(ctx) },
+    {
+      method: 'GET',
+      path: '/api/instagram/:shortcode/media/:index',
+      // Writes bytes itself rather than returning JSON.
+      handler: async ctx => { await handleInstagramMedia(ctx); return undefined }
+    },
 
     // Resumable upload for media too large to post in one request.
     { method: 'POST', path: '/api/uploads/init', handler: withUploads(handleUploadInit) },
