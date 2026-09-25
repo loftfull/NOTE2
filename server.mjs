@@ -34,6 +34,10 @@ import {
 import { handleLegacyPull, handleLegacyPush } from './server/routes/sync.mjs'
 import { handleAi, handleEmbed } from './server/routes/ai.mjs'
 import { handleTranscribe, handleVision } from './server/routes/media.mjs'
+import {
+  createUploadManager, handleUploadChunk, handleUploadDelete, handleUploadInit,
+  handleUploadStatus, handleUploadTranscribe
+} from './server/routes/uploads.mjs'
 import { createStore } from './server/store.mjs'
 
 const STATIC_TYPES = {
@@ -108,7 +112,9 @@ async function serveStatic(req, res, config) {
  */
 function buildRoutes(config, deps = {}) {
   const store = deps.store || createStore(config.dataDir)
+  const uploads = deps.uploads || createUploadManager(config)
   const withStore = handler => ctx => handler({ ...ctx, store })
+  const withUploads = handler => ctx => handler({ ...ctx, uploads })
 
   return [
     {
@@ -168,6 +174,18 @@ function buildRoutes(config, deps = {}) {
     // rawBody: the file is the body, so it must not be parsed as JSON.
     { method: 'POST', path: '/api/vision', rawBody: true, handler: async ctx => handleVision(ctx) },
     { method: 'POST', path: '/api/transcribe', rawBody: true, handler: async ctx => handleTranscribe(ctx) },
+
+    // Resumable upload for media too large to post in one request.
+    { method: 'POST', path: '/api/uploads/init', handler: withUploads(handleUploadInit) },
+    {
+      method: 'PUT',
+      path: '/api/uploads/:uploadId/chunks/:index',
+      rawBody: true,
+      handler: withUploads(handleUploadChunk)
+    },
+    { method: 'POST', path: '/api/uploads/:uploadId/transcribe', handler: withUploads(handleUploadTranscribe) },
+    { method: 'GET', path: '/api/uploads/:uploadId', handler: withUploads(handleUploadStatus) },
+    { method: 'DELETE', path: '/api/uploads/:uploadId', handler: withUploads(handleUploadDelete) },
 
     // The pre-account sync mode the client still offers.
     { method: 'GET', path: '/api/sync/:workspaceId', handler: withStore(handleLegacyPull) },
