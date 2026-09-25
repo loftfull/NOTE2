@@ -4,3 +4,6 @@ dist/
 data/
 *.local
 .DS_Store
+
+# Gateway runtime state (accounts, synced snapshots, uploads)
+.note2-data/
