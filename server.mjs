@@ -32,6 +32,8 @@ import {
   handlePushWorkspace, handleRegister, handleRevokeSession
 } from './server/routes/account.mjs'
 import { handleLegacyPull, handleLegacyPush } from './server/routes/sync.mjs'
+import { handleAi, handleEmbed } from './server/routes/ai.mjs'
+import { handleTranscribe, handleVision } from './server/routes/media.mjs'
 import { createStore } from './server/store.mjs'
 
 const STATIC_TYPES = {
@@ -158,6 +160,14 @@ function buildRoutes(config, deps = {}) {
       maxBody: config.limits.snapshotBytes,
       handler: withStore(handlePushWorkspace)
     },
+
+    // Model-backed routes. Each refuses with 503 when unconfigured rather
+    // than answering with something that is not a model's output.
+    { method: 'POST', path: '/api/ai', maxBody: 4 * 1024 * 1024, handler: async ctx => handleAi(ctx) },
+    { method: 'POST', path: '/api/embed', maxBody: 8 * 1024 * 1024, handler: async ctx => handleEmbed(ctx) },
+    // rawBody: the file is the body, so it must not be parsed as JSON.
+    { method: 'POST', path: '/api/vision', rawBody: true, handler: async ctx => handleVision(ctx) },
+    { method: 'POST', path: '/api/transcribe', rawBody: true, handler: async ctx => handleTranscribe(ctx) },
 
     // The pre-account sync mode the client still offers.
     { method: 'GET', path: '/api/sync/:workspaceId', handler: withStore(handleLegacyPull) },
