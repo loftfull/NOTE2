@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from './icons.jsx'
 import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
+import { discoverGateway } from './gateway-discovery.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
 import { embedWithSettings, hasAiRoute, hasEmbedRoute, runTask } from './model-runtime.js'
 import { notesLabel, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
@@ -368,6 +369,20 @@ export default function App(){
   const [capturePayload,setCapturePayload]=useState(null)
 
   useEffect(()=>{let live=true;getCredential('noteai-account-session-v1').then(token=>{if(live&&token)setApiSessionAuth(token,settings.accountEndpoint||'/api/account')}).catch(()=>{});return()=>{live=false}},[])
+
+  // If a gateway is serving this app, wire up exactly the capabilities it
+  // reports. Endpoints default to empty because a preset path nobody serves
+  // means a failed request on every import — but empty also means the user has
+  // to type '/api/ai' to reach features that are already running one origin
+  // away. Asking /api/health settles it, and a capability the gateway reports
+  // as unavailable stays unset so the UI keeps showing it as unavailable.
+  useEffect(()=>{
+    let live=true
+    discoverGateway(loadSettings()).then(({patch})=>{
+      if(live&&Object.keys(patch).length)setSettings(current=>({...current,...patch}))
+    }).catch(()=>{})
+    return()=>{live=false}
+  },[])
   useEffect(()=>saveWorkspace(workspace),[workspace])
   useEffect(()=>saveSettings(settings),[settings])
   // The app is light-only by product decision. What used to be a light/dark
