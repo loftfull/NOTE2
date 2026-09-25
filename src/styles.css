@@ -51,7 +51,7 @@
 
   --font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font);
-  --display-weight: 620;
+  --display-weight: var(--w-display);
   --display-tracking: -.022em;
 
   /* Geometry contract — see the yasny block for what each one governs. */
@@ -107,7 +107,7 @@
   --font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   /* A real display face gives this style its editorial voice. */
   --font-display: "Georgia", "Iowan Old Style", "Times New Roman", serif;
-  --display-weight: 700;
+  --display-weight: var(--w-display);
   --display-tracking: -.012em;
 
   --ctl-h: 48px;
@@ -183,7 +183,7 @@
 
   --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font);
-  --display-weight: 700;
+  --display-weight: var(--w-display);
   --display-tracking: -.028em;
 
   --ctl-h: 48px;
@@ -206,18 +206,36 @@
   color-scheme: light;
 }
 
-/* ---------- type scale (shared) ---------- */
+/* ---------- type scale (shared) ----------
+   Замер до этой правки: 20 различных пар «размер/вес» на пяти экранах,
+   9 размеров и 6 весов. Размер 13 px встречался с пятью разными весами;
+   600 и 650 использовались почти поровну (18 и 17 раз), различаясь на
+   50 единиц и не давая ничего, кроме рассогласования; --t-nav и --t-caption
+   были одним и тем же значением под двумя именами. Это не шкала, а
+   накопление: иерархия на глаз не читается, потому что соседние ступени
+   отличаются меньше, чем шум.
+
+   Шесть размеров и три веса. Соседние ступени размера различаются заметно
+   (28 / 20 / 17 / 15 / 13 / 11), веса — на 200 и 100 единиц, а не на 50. */
 
 :root {
-  --t-display: 27px;
-  --t-section: 19px;
-  --t-editor: 22px;
-  --t-read: 17px;
-  --t-body: 16px;
-  --t-control: 14px;
-  --t-secondary: 13px;
-  --t-nav: 12px;
-  --t-caption: 12px;
+  --t-display: 28px;   /* приветствие, заголовок экрана */
+  --t-section: 20px;   /* заголовок раздела внутри экрана */
+  --t-editor: 22px;    /* текст в редакторе заметки */
+  --t-read: 17px;      /* длинный читаемый текст */
+  --t-body: 15px;      /* обычный текст интерфейса */
+  --t-secondary: 13px; /* подписи, кнопки, метаданные */
+  --t-caption: 11px;   /* надзаголовки, самое мелкое */
+
+  /* Прежние имена сохранены как псевдонимы: они стоят в десятках правил,
+     и переименование ради переименования — лишний риск. */
+  --t-control: var(--t-secondary);
+  --t-nav: var(--t-caption);
+
+  /* Три веса. Больше не нужно: 500 и 560 были неотличимы от 600. */
+  --w-text: 400;
+  --w-label: 600;
+  --w-display: 700;
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -225,8 +243,8 @@
   --safe-r: env(safe-area-inset-right, 0px);
 }
 
-:root[data-font-scale="small"] { --t-display: 24px; --t-section: 18px; --t-editor: 20px; --t-read: 16px; --t-body: 15px; --t-control: 13px; --t-secondary: 12px; }
-:root[data-font-scale="large"] { --t-display: 30px; --t-section: 21px; --t-editor: 24px; --t-read: 19px; --t-body: 17px; --t-control: 15px; --t-secondary: 14px; }
+:root[data-font-scale="small"] { --t-display: 25px; --t-section: 18px; --t-editor: 20px; --t-read: 16px; --t-body: 14px; --t-secondary: 12px; --t-caption: 11px; }
+:root[data-font-scale="large"] { --t-display: 31px; --t-section: 22px; --t-editor: 24px; --t-read: 19px; --t-body: 17px; --t-secondary: 14px; --t-caption: 12px; }
 :root[data-density="comfortable"] { --gap: 18px; --pad: 22px; --row-h: 58px; }
 
 /* ---------- base ---------- */
@@ -337,7 +355,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .header.headerHasAction { display: flex; }
 @media (min-width: 900px) { .header { display: flex; } }
-.headerTitle { font-size: var(--t-section); font-weight: 650; letter-spacing: -.018em; }
+.headerTitle { font-size: var(--t-section); font-weight: var(--w-label); letter-spacing: -.018em; }
 .headerActions { display: flex; align-items: center; gap: 8px; }
 .sidebar, .desktopOnly { display: none; }
 
@@ -346,14 +364,19 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 /* ---------- typography helpers ---------- */
 
-.headline, .notesHeadline, .sourcesHeadline, .youHeadline, .settingsPageTitle {
+/* .settingsPageTitle сюда не входит намеренно: это обёртка вокруг h1 и
+   абзаца под ним, а не сам заголовок. Когда правило стояло на обёртке,
+   подзаголовок наследовал вес 700 и трекинг заголовка — 13 px display-весом
+   с отрицательным межбуквенным, чего нет больше нигде. */
+.headline, .notesHeadline, .sourcesHeadline, .youHeadline {
   font-family: var(--font-display);
   font-size: var(--t-display); line-height: 1.18;
   font-weight: var(--display-weight); letter-spacing: var(--display-tracking);
   color: var(--ink);
 }
+.settingsPageTitle { display: flex; flex-direction: column; gap: 4px; }
 .eyebrow {
-  font-size: 11px; font-weight: 650; color: var(--ink-3);
+  font-size: 11px; font-weight: var(--w-label); color: var(--ink-3);
   text-transform: uppercase; letter-spacing: .09em;
 }
 .small { font-size: var(--t-secondary); line-height: 1.45 }
@@ -391,7 +414,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   border: 1px dashed var(--line-strong);
   border-radius: var(--card-radius);
 }
-.empty strong, .modelEmpty strong { color: var(--ink); font-size: var(--t-body); font-weight: 650 }
+.empty strong, .modelEmpty strong { color: var(--ink); font-size: var(--t-body); font-weight: var(--w-label) }
 
 .resultBox, .aiOutput, .sourceSummaryBox, .instagramInsightOutput {
   background: var(--surface-2);
@@ -409,7 +432,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   min-height: var(--btn-h); padding: 0 16px;
   border: 1px solid transparent; border-radius: var(--r-sm);
   background: var(--accent); color: var(--accent-ink);
-  font: inherit; font-size: var(--t-control); font-weight: 600;
+  font: inherit; font-size: var(--t-control); font-weight: var(--w-label);
   cursor: pointer;
   transition: background-color var(--ms) var(--ease), transform var(--ms) var(--ease), box-shadow var(--ms) var(--ease);
 }
@@ -444,7 +467,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .textAction {
   background: none; border: 0; padding: 4px 2px; color: var(--accent);
-  font: inherit; font-size: var(--t-secondary); font-weight: 600; cursor: pointer;
+  font: inherit; font-size: var(--t-secondary); font-weight: var(--w-label); cursor: pointer;
   display: inline-flex; align-items: center; gap: 4px;
 }
 .textAction:hover { text-decoration: underline }
@@ -476,9 +499,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .input:focus, :root[data-style="yasny"] .textarea:focus { background: var(--surface) }
 
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0 }
-.fieldLabel { font-size: var(--t-secondary); font-weight: 600; color: var(--ink-2) }
+.fieldLabel { font-size: var(--t-secondary); font-weight: var(--w-label); color: var(--ink-2) }
 .fieldHint { font-size: var(--t-caption); color: var(--ink-3); line-height: 1.45 }
-.fieldError { font-size: var(--t-caption); color: var(--danger); font-weight: 600 }
+.fieldError { font-size: var(--t-caption); color: var(--danger); font-weight: var(--w-label) }
 .field.hasError .input { border-color: var(--danger) }
 
 .searchRow, .sourceLibrarySearch, .capturePaste {
@@ -502,7 +525,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   flex: 0 1 auto; min-width: 0; padding: 0 18px 0 9px;
   min-height: 0; align-self: stretch; max-width: 44%;
   border: 0; border-left: 1px solid var(--line); border-radius: 0;
-  background: transparent; font-size: var(--t-secondary); font-weight: 600; color: var(--ink-2);
+  background: transparent; font-size: var(--t-secondary); font-weight: var(--w-label); color: var(--ink-2);
 }
 .searchRow .select:focus { box-shadow: none }
 :root[data-style="pero"] .searchRow, :root[data-style="yasny"] .searchRow,
@@ -520,7 +543,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   flex: none; min-height: calc(var(--chip-h) - 6px); padding: 0 14px;
   border: 0; border-radius: calc(var(--r-sm) - 1px);
   background: transparent; color: var(--ink-2);
-  font: inherit; font-size: var(--t-control); font-weight: 600;
+  font: inherit; font-size: var(--t-control); font-weight: var(--w-label);
   cursor: pointer; white-space: nowrap;
   transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease);
 }
@@ -534,7 +557,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   min-height: var(--chip-h); padding: 0 14px; flex: none;
   border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface); color: var(--ink-2);
-  font: inherit; font-size: var(--t-secondary); font-weight: 600;
+  font: inherit; font-size: var(--t-secondary); font-weight: var(--w-label);
   cursor: pointer; white-space: nowrap;
   transition: border-color var(--ms) var(--ease), color var(--ms) var(--ease), background-color var(--ms) var(--ease);
 }
@@ -550,14 +573,14 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 9px; border-radius: var(--r-sm);
   background: var(--surface-2); color: var(--ink-2);
-  font-size: var(--t-caption); font-weight: 600; white-space: nowrap;
+  font-size: var(--t-caption); font-weight: var(--w-label); white-space: nowrap;
 }
 .tags { display: flex; flex-wrap: wrap; gap: 6px }
 :root[data-style="pero"] .tag, :root[data-style="yasny"] .tag { border-radius: var(--r-pill) }
 
 .statusPill {
   display: inline-flex; align-items: center; padding: 3px 9px;
-  border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: 600;
+  border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--w-label);
   background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
 }
 .statusPill.ok { background: var(--ok-soft); color: var(--ok) }
@@ -567,11 +590,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .statusDot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none }
 .statusDot.offline { background: var(--ink-3) }
 
-.sourceStatus { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: 600 }
+.sourceStatus { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: var(--w-label) }
 .sourceStatus.ready { background: var(--ok-soft); color: var(--ok) }
 .sourceStatus.needs { background: var(--warn-soft); color: var(--warn) }
 
-.priority { font-size: var(--t-caption); font-weight: 650; padding: 2px 8px; border-radius: var(--r-sm) }
+.priority { font-size: var(--t-caption); font-weight: var(--w-label); padding: 2px 8px; border-radius: var(--r-sm) }
 .priority.urgent { background: var(--danger-soft); color: var(--danger) }
 .priority.high { background: var(--warn-soft); color: var(--warn) }
 .priority.medium, .priority.low { background: var(--surface-2); color: var(--ink-2) }
@@ -596,12 +619,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; padding: 8px 2px;
   border: 0; background: none; color: var(--ink-3);
-  font: inherit; font-size: var(--t-nav); font-weight: 500;
+  font: inherit; font-size: var(--t-nav); font-weight: var(--w-label);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: color var(--ms) var(--ease);
 }
 .bottomNav button span { line-height: 1.15; white-space: nowrap }
-.bottomNav button.active { color: var(--ink); font-weight: 650 }
+.bottomNav button.active { color: var(--ink); font-weight: var(--w-label) }
 .bottomNav button.active .appIcon { color: var(--accent); stroke-width: 2 }
 
 /* Grifel: a precise 2px tick under the active label. */
@@ -667,7 +690,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   gap: 8px; min-height: 80px; padding: 12px 6px;
   border: 1px solid var(--line); border-radius: var(--card-radius);
   background: var(--surface); color: var(--ink);
-  font: inherit; font-size: var(--t-caption); font-weight: 600;
+  font: inherit; font-size: var(--t-caption); font-weight: var(--w-label);
   cursor: pointer; text-align: center;
   transition: border-color var(--ms) var(--ease), background-color var(--ms) var(--ease), transform var(--ms) var(--ease);
 }
@@ -680,7 +703,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 
 .captureLinkBox { margin-top: 16px }
-.captureLinkTitle { font-size: var(--t-secondary); font-weight: 600; margin-bottom: 7px }
+.captureLinkTitle { font-size: var(--t-secondary); font-weight: var(--w-label); margin-bottom: 7px }
 .captureLinkRow { display: flex; gap: 8px; align-items: center }
 .captureLinkRow .input { flex: 1 }
 
@@ -697,7 +720,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   max-width: min(92vw, 420px); padding: 11px 17px;
   border-radius: var(--r-sm);
   background: var(--ink); color: var(--surface);
-  font-size: var(--t-secondary); font-weight: 600;
+  font-size: var(--t-secondary); font-weight: var(--w-label);
   box-shadow: var(--shadow-2); text-align: center;
   animation: fadeIn var(--ms) var(--ease) both;
 }
@@ -708,7 +731,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .brand { display: flex; align-items: center; gap: 10px }
 .brandMark {
   width: var(--sq); height: var(--sq); display: grid; place-items: center;
-  border-radius: var(--r-sm); background: var(--accent); color: var(--accent-ink); font-weight: 700;
+  border-radius: var(--r-sm); background: var(--accent); color: var(--accent-ink); font-weight: var(--w-display);
 }
 .brandText { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -.02em }
 
@@ -721,8 +744,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .dailyMeta { display: flex; align-items: center; gap: 11px; min-width: 0 }
 .dailyMeta > div { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
-.dailyMeta strong { font-size: var(--t-body); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.dailyMeta span { font-size: var(--t-caption); color: var(--ink-3); font-weight: 500 }
+.dailyMeta strong { font-size: var(--t-body); font-weight: var(--w-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.dailyMeta span { font-size: var(--t-caption); color: var(--ink-3); font-weight: var(--w-label) }
 .dailySurface { display: flex; flex-direction: column; gap: 10px }
 .dailySurface > p { font-size: var(--t-read); line-height: 1.62; color: var(--ink-2) }
 
@@ -736,12 +759,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .continueItem:hover { border-color: var(--accent); transform: translateY(-2px) }
 .continueText { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
-.continueText strong { font-size: var(--t-secondary); color: var(--ink); font-weight: 650 }
+.continueText strong { font-size: var(--t-secondary); color: var(--ink); font-weight: var(--w-label) }
 .continueText span {
   font-size: var(--t-caption); color: var(--ink-2); line-height: 1.45;
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.continueText small { font-size: 11px; color: var(--ink-3); font-weight: 600 }
+.continueText small { font-size: 11px; color: var(--ink-3); font-weight: var(--w-label) }
 
 .todayReview, .reviewSurface { display: flex; flex-direction: column; gap: 10px }
 .reviewItem { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--line) }
@@ -770,7 +793,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .noteRow:hover, :root[data-style="yasny"] .unifiedSourceRow:hover { background: var(--surface-2) }
 
 .noteTitle, .unifiedSourceCopy strong, .jobMain strong {
-  font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  font-weight: var(--w-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 /* strong / span / small inside these run together when left inline — the same
    defect that produced "sample.pdfPage 1 Test PDF…Документ · Готово". */
@@ -783,7 +806,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden;
 }
-.unifiedSourceCopy > small, .jobMain > small { font-size: 11px; color: var(--ink-3); font-weight: 600 }
+.unifiedSourceCopy > small, .jobMain > small { font-size: 11px; color: var(--ink-3); font-weight: var(--w-label) }
 .unifiedSourceOpen { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer }
 .unifiedSourceIcon, .semanticObject, .knowledgeObject, .graphNode {
   flex: none; width: var(--sq); height: var(--sq); border-radius: var(--r-sm);
@@ -818,7 +841,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .styleTile:hover { border-color: var(--ink-3) }
 .styleTile.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft) }
-.styleName { font-size: var(--t-secondary); font-weight: 650; color: var(--ink) }
+.styleName { font-size: var(--t-secondary); font-weight: var(--w-label); color: var(--ink) }
 .styleNote { font-size: 11px; color: var(--ink-3); line-height: 1.35 }
 
 /* A miniature of each style: ground, a card and the accent bar. */
@@ -846,7 +869,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .modelCard.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft) }
 .modelCardTop { display: flex; align-items: center; gap: 11px; flex-wrap: wrap }
 .modelCardMain { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 2px }
-.modelCardMain strong { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.modelCardMain strong { font-weight: var(--w-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .modelCardTop .statusPill { flex: none }
 
 .modelPick {
@@ -883,7 +906,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .providerTile:hover { border-color: var(--ink-3) }
 .providerTile.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft) }
-.providerName { font-size: var(--t-secondary); font-weight: 650 }
+.providerName { font-size: var(--t-secondary); font-weight: var(--w-label) }
 
 .modelHint {
   display: flex; gap: 8px; align-items: flex-start;
@@ -892,7 +915,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   font-size: var(--t-secondary); line-height: 1.5;
 }
 .modelHint .appIcon { margin-top: 2px; flex: none; color: var(--accent) }
-.modelDocs { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: var(--t-secondary); font-weight: 650; text-decoration: none }
+.modelDocs { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: var(--t-secondary); font-weight: var(--w-label); text-decoration: none }
 .modelDocs:hover { text-decoration: underline }
 
 /* ---------- editor ---------- */
@@ -912,7 +935,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   flex: none; min-height: var(--chip-h); padding: 0 13px;
   border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface); color: var(--ink-2);
-  font: inherit; font-size: 11px; font-weight: 600;
+  font: inherit; font-size: 11px; font-weight: var(--w-label);
   cursor: pointer; white-space: nowrap;
   transition: border-color var(--ms) var(--ease), color var(--ms) var(--ease);
 }
@@ -943,7 +966,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .sourceTextSegments { display: flex; flex-direction: column; gap: 12px }
 .sourceTextSegment { padding: 13px 15px; border-bottom: 1px solid var(--line) }
 .sourceTextSegment:last-child { border-bottom: 0 }
-.sourceTextLocator { font-size: var(--t-caption); color: var(--ink-3); font-weight: 650; margin-bottom: 5px }
+.sourceTextLocator { font-size: var(--t-caption); color: var(--ink-3); font-weight: var(--w-label); margin-bottom: 5px }
 .sourceLinkedNotes, .sourceAdvancedPanel { display: flex; flex-direction: column; gap: 9px }
 
 .mediaLayout, .youtubeLayout, .researchLayout, .analysisGrid, .settingsGrid,
@@ -952,19 +975,19 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .youtubeFrame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: var(--r-sm); overflow: hidden }
 .youtubeFrame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0 }
-.youtubeTitle { font-weight: 650 }
+.youtubeTitle { font-weight: var(--w-label) }
 
 .healthGrid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) }
 .healthGrid > div { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; background: var(--surface-2); border-radius: var(--r-sm) }
 .healthGrid span { font-size: var(--t-caption); color: var(--ink-3) }
 .healthGrid strong { font-size: var(--t-secondary); overflow-wrap: anywhere }
 
-.settingLabel { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-secondary); font-weight: 600; color: var(--ink-2); min-width: 0 }
-.settingLabel .input { font-weight: 400; color: var(--ink) }
+.settingLabel { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-secondary); font-weight: var(--w-label); color: var(--ink-2); min-width: 0 }
+.settingLabel .input { font-weight: var(--w-text); color: var(--ink) }
 .analysisWide { grid-column: 1/-1 }
 .settingsSectionLine { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap }
 .settingsSectionLine:last-child { border-bottom: 0 }
-.settingsSectionLine strong { display: block; font-weight: 650 }
+.settingsSectionLine strong { display: block; font-weight: var(--w-label) }
 .settingsSectionLine span { font-size: var(--t-secondary); color: var(--ink-2) }
 
 /* ---------- carousels ---------- */
@@ -987,7 +1010,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   position: absolute; top: 10px; right: 10px; z-index: 2;
   padding: 3px 9px; border-radius: var(--r-pill);
   background: var(--ink); color: var(--surface);
-  font-size: var(--t-caption); font-weight: 600;
+  font-size: var(--t-caption); font-weight: var(--w-label);
 }
 .sourceMediaLoading, .instagramLoading { display: grid; place-items: center; min-height: 180px; color: var(--ink-3); font-size: var(--t-secondary) }
 
@@ -1007,7 +1030,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .evidenceMark, .citationChip {
   display: inline-flex; align-items: center; padding: 2px 7px;
   border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent);
-  font-size: var(--t-caption); font-weight: 700;
+  font-size: var(--t-caption); font-weight: var(--w-display);
 }
 .citedText { line-height: 1.72; font-size: var(--t-read); white-space: pre-wrap; overflow-wrap: anywhere }
 
@@ -1015,7 +1038,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .jobProgress { position: relative; height: 4px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; width: 100% }
 .jobProgress > i { position: absolute; inset: 0 auto 0 0; background: var(--accent); display: block; transition: width var(--ms) var(--ease) }
-.jobState { font-size: var(--t-caption); font-weight: 650; padding: 3px 8px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2) }
+.jobState { font-size: var(--t-caption); font-weight: var(--w-label); padding: 3px 8px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2) }
 .jobState.running { background: var(--accent-soft); color: var(--accent) }
 .jobState.done { background: var(--ok-soft); color: var(--ok) }
 .jobState.failed { background: var(--danger-soft); color: var(--danger) }
@@ -1024,7 +1047,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .transcriptSegment { display: flex; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: var(--t-secondary) }
 .transcriptSegment:last-child { border-bottom: 0 }
-.transcriptTime { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; font-weight: 650 }
+.transcriptTime { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; font-weight: var(--w-label) }
 
 .chatShell { display: flex; flex-direction: column; gap: 11px }
 .messages { display: flex; flex-direction: column; gap: 8px }
@@ -1042,7 +1065,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .profile, .personalSettingsCard, .profileMeta { display: flex; flex-direction: column; gap: var(--gap) }
 .avatar, .profileAvatarLarge {
   border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink);
-  display: grid; place-items: center; font-weight: 700; flex: none;
+  display: grid; place-items: center; font-weight: var(--w-display); flex: none;
 }
 .avatar { width: var(--sq); height: var(--sq) }
 .profileAvatarLarge { width: 68px; height: 68px; font-size: 25px }
@@ -1469,7 +1492,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   border-radius: var(--r-pill);
   background: transparent;
   color: var(--ink-2);
-  font: inherit; font-size: var(--t-secondary); font-weight: 560;
+  font: inherit; font-size: var(--t-secondary); font-weight: var(--w-label);
   cursor: pointer;
   transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease), border-color var(--ms) var(--ease);
 }
