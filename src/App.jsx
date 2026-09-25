@@ -5,7 +5,7 @@ import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, 
 import { discoverGateway } from './gateway-discovery.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
 import { embedWithSettings, hasAiRoute, hasEmbedRoute, runTask } from './model-runtime.js'
-import { notesLabel, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
+import { notesLabel, pluralRu, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
 import { Button, Card, Input, Textarea } from './ui.jsx'
 import ModelManager from './ModelManager.jsx'
 import { MODEL_ROLES, selectModel } from './models.js'
@@ -471,6 +471,8 @@ function CaptureSheet({open,onClose,newNote,navigate,onFiles,onLink}){
       <button onClick={()=>pick(videoRef)}><KnowledgeObject kind="video" seed="video" size="sm"/><span>Видео</span><small>Файл с устройства</small></button>
       <button onClick={()=>pick(audioRef)}><KnowledgeObject kind="audio" seed="audio" size="sm"/><span>Аудио</span><small>Файл с устройства</small></button>
       <button onClick={()=>pick(fileRef)}><KnowledgeObject kind="pdf" seed="file" size="sm"/><span>Документ</span><small>PDF, Office, книга</small></button>
+      <button onClick={()=>go('youtube')}><KnowledgeObject kind="video" seed="youtube" size="sm"/><span>YouTube</span><small>Субтитры и разбор</small></button>
+      <button onClick={()=>go('studio')}><KnowledgeObject kind="note" seed="studio" size="sm"/><span>Разобрать текст</span><small>Без сохранения</small></button>
     </div>
     <div className="captureLinkBox">
       <div className="captureLinkTitle"><Icon name="link" size={22}/><div><strong>Ссылка</strong><small>Instagram, YouTube или веб-страница</small></div></div>
@@ -488,7 +490,11 @@ function PageRouter(props){
   switch(props.page){
     case'dashboard':return <Dashboard {...props}/>;case'library':return <Library {...props}/>;case'editor':return <Editor {...props}/>;case'chat':return <Chat {...props}/>;
     case'analysis':return <Analysis {...props}/>;case'studio':return <Studio {...props}/>;case'media':return <Media {...props}/>;case'youtube':return <YouTube {...props}/>;
-    case'search':return <Search {...props}/>;case'graph':return <Graph {...props}/>;case'tasks':return <Tasks {...props}/>;case'settings':return <Settings {...props}/>;default:return <Dashboard {...props}/>
+    case'search':return <Search {...props}/>
+    // Задачи и карта тем стали видами «Заметок». Маршруты сохранены, чтобы
+    // существующие ссылки (например «Все задачи» с главной) вели туда же.
+    case'tasks':return <Library {...props} initialSection="tasks"/>;case'graph':return <Library {...props} initialSection="graph"/>
+    case'settings':return <Settings {...props}/>;default:return <Dashboard {...props}/>
   }
 }
 
@@ -545,15 +551,40 @@ function Dashboard({workspace,navigate,openEditor,newNote,openCapture}){
 }
 function NoteRow({note,onOpen,onDelete}){return <div className="noteRow" onClick={onOpen}><KnowledgeObject kind="note" seed={note.id} size="sm"/><div style={{minWidth:0}}><div className="noteTitle">{note.pinned&&<Icon name="push_pin" size={14}/>} {note.favorite&&<Icon name="star" size={14}/>} {note.title||'Без названия'}</div><div className="small subtle" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:3}}>{stripMarkdown(note.content).slice(0,110)||'Пустая заметка'}</div><div className="tags" style={{marginTop:6}}>{(note.tags||[]).slice(0,4).map(t=><span className="tag" key={t}>#{t}</span>)}</div></div><div className="row gap8 rowActions"><span className="tiny subtle">{formatDate(note.updatedAt)}</span>{onDelete&&<button className="iconBtn" onClick={e=>{e.stopPropagation();onDelete()}} aria-label="Удалить"><Icon name="delete" size={18}/></button>}</div></div>}
 
-function Library({workspace,setWorkspace,openEditor,newNote}){
+// Заметки, задачи и карта тем — три вида одного рабочего пространства.
+//
+// Раньше «Задачи» и «Карта тем» были отдельными экранами без входа в
+// навигации: на задачи вела одна ссылка с главной, а на карту тем — ни одной,
+// то есть работающий код был недостижим. Все три строятся из одних данных
+// (заметки, их теги, задачи), поэтому это виды, а не разделы.
+const LIBRARY_VIEWS = [
+  ['notes', 'Заметки', 'edit_note'],
+  ['tasks', 'Задачи', 'checklist'],
+  ['graph', 'Карта тем', 'hub']
+]
+
+function Library({workspace,setWorkspace,openEditor,newNote,initialSection='notes'}){
+  const[section,setSection]=useState(initialSection)
   const[query,setQuery]=useState('');const[sort,setSort]=useState('newest');const[selected,setSelected]=useState([]);const[view,setView]=useState('all');const tags=[...new Set(workspace.notes.flatMap(n=>n.tags||[]))]
   const notes=useMemo(()=>workspace.notes.filter(n=>{const q=query.toLowerCase();const mq=!q||`${n.title} ${n.content}`.toLowerCase().includes(q);const mt=!selected.length||selected.every(t=>(n.tags||[]).includes(t));const mv=view==='all'||view==='pinned'&&n.pinned||view==='favorites'&&n.favorite;return mq&&mt&&mv}).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||(sort==='newest'?b.updatedAt-a.updatedAt:sort==='oldest'?a.updatedAt-b.updatedAt:(a.title||'').localeCompare(b.title||'','ru'))),[workspace.notes,query,sort,selected,view])
   const del=id=>setWorkspace(w=>({...w,notes:w.notes.filter(n=>n.id!==id)}))
-  return <div className="page"><div className="row space" style={{marginBottom:14}}><div><h1 className="headline notesHeadline">Заметки</h1><p className="subtle small">{notesLabel(workspace.notes.length)} · хранятся локально</p></div><Button icon="add" onClick={newNote}>Новая</Button></div>
+  const openTasks=workspace.tasks.filter(t=>!t.done).length
+  const summary=section==='tasks'
+    ?`${tasksLabel(workspace.tasks.length)} · ${openTasks} открыто`
+    :section==='graph'
+      ?`${tags.length} ${pluralRu(tags.length,'тема','темы','тем')} из ваших заметок`
+      :`${notesLabel(workspace.notes.length)} · хранятся локально`
+
+  return <div className="page"><div className="row space" style={{marginBottom:14}}><div><h1 className="headline notesHeadline">Заметки</h1><p className="subtle small">{summary}</p></div>{section==='notes'&&<Button icon="add" onClick={newNote}>Новая</Button>}</div>
+    <div className="notebookViews" style={{marginBottom:12}}>{LIBRARY_VIEWS.map(([id,label,icon])=><button key={id} className={section===id?'active':''} onClick={()=>setSection(id)}><Icon name={icon} size={18}/>{label}</button>)}</div>
+    {section==='tasks'&&<TasksView workspace={workspace} setWorkspace={setWorkspace}/>}
+    {section==='graph'&&<GraphView workspace={workspace} openEditor={openEditor}/>}
+    {section==='notes'&&<>
     <div className="notebookViews"><button className={view==='all'?'active':''} onClick={()=>setView('all')}><Icon name="notes" size={18}/>Все</button><button className={view==='pinned'?'active':''} onClick={()=>setView('pinned')}><Icon name="push_pin" size={18}/>Закреплённые</button><button className={view==='favorites'?'active':''} onClick={()=>setView('favorites')}><Icon name="star" size={18}/>Избранное</button></div>
     <div className="searchRow"><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по названию и тексту…"/><select className="select" style={{maxWidth:160}} value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="alpha">А–Я</option></select></div>
     <div className="chips" style={{marginTop:12}}>{tags.map(t=><button className={`chip ${selected.includes(t)?'active':''}`} key={t} onClick={()=>setSelected(s=>s.includes(t)?s.filter(x=>x!==t):[...s,t])}>#{t}</button>)}</div>
     <div className="notesList">{notes.map(n=><NoteRow key={n.id} note={n} onOpen={()=>openEditor(n.id)} onDelete={()=>del(n.id)}/>)}{!notes.length&&<div className="empty"><Icon name="search_off" size={48}/><p style={{marginTop:8}}>Подходящих заметок нет.</p></div>}</div>
+    </>}
   </div>
 }
 
@@ -869,7 +900,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
 function Studio({settings}){
   const[action,setAction]=useState('summarize');const[input,setInput]=useState('');const[out,setOut]=useState('');const[loading,setLoading]=useState(false);const tools=[['summarize','Summarize','summarize'],['keywords','Keywords','tag'],['improve','Clean up','auto_fix_high'],['title','Generate title','title']]
   const run=async()=>{setLoading(true);setOut(aiResultText(await runTask(settings,{action,input,system:'Transform the supplied content without inventing facts.'})));setLoading(false)}
-  return <div className="page"><h1 className="headline">Studio</h1><p className="subtle" style={{marginTop:5}}>Повторно используемые преобразования заметок и импортированного текста.</p><div className="split" style={{marginTop:16}}>{tools.map(([id,label,icon])=><button key={id} className={`card ${action===id?'':''}`} style={{textAlign:'left',borderColor:action===id?'var(--brand)':'var(--line)'}} onClick={()=>setAction(id)}><div className="row gap12"><div className="metricIcon"><Icon name={icon}/></div><strong>{label}</strong></div></button>)}</div><Textarea style={{marginTop:14}} value={input} onChange={e=>setInput(e.target.value)} placeholder="Content…"/><div style={{marginTop:10}}><Button icon="auto_awesome" onClick={run} disabled={!input.trim()||loading}>{loading?'Working…':'Run'}</Button></div>{out&&<Card className="resultBox" style={{marginTop:14}}>{out}</Card>}</div>
+  return <div className="page"><h1 className="headline">Разобрать текст</h1><p className="subtle" style={{marginTop:5}}>Вставьте любой текст и примените к нему действие. Результат не сохраняется — для этого создайте заметку.</p><div className="split" style={{marginTop:16}}>{tools.map(([id,label,icon])=><button key={id} className={`card ${action===id?'':''}`} style={{textAlign:'left',borderColor:action===id?'var(--brand)':'var(--line)'}} onClick={()=>setAction(id)}><div className="row gap12"><div className="metricIcon"><Icon name={icon}/></div><strong>{label}</strong></div></button>)}</div><Textarea style={{marginTop:14}} value={input} onChange={e=>setInput(e.target.value)} placeholder="Вставьте текст…"/><div style={{marginTop:10}}><Button icon="auto_awesome" onClick={run} disabled={!input.trim()||loading}>{loading?'Обрабатываю…':'Выполнить'}</Button></div>{out&&<Card className="resultBox" style={{marginTop:14}}>{out}</Card>}</div>
 }
 
 function Media({settings,setToast}){
@@ -941,16 +972,16 @@ function Media({settings,setToast}){
   const srt=result?.sections?.length?sectionsToSrt(result.sections):''
   const quality=result?.quality
   return <div className="page">
-    <div className="row space" style={{alignItems:'flex-start',gap:12}}><div><h1 className="headline">Media Intelligence</h1><p className="subtle" style={{marginTop:5}}>Local durable queue → real transcription → timestamps/speakers → Source Vault evidence.</p></div>{result?.model&&<span className="tag">{result.model}</span>}</div>
+    <div className="row space" style={{alignItems:'flex-start',gap:12}}><div><h1 className="headline">Аудио и видео</h1><p className="subtle" style={{marginTop:5}}>Расшифровка с таймкодами и разделением по говорящим. Результат попадает в библиотеку источников как доказательство с привязкой к моменту записи.</p></div>{result?.model&&<span className="tag">{result.model}</span>}</div>
     <div className="notice" style={{marginTop:14}}>Media jobs are persisted locally before transport. Files up to 24 MB use the direct connector; larger files automatically switch to resumable 6 MB chunks. The gateway reconstructs the original media, extracts its audio with FFmpeg, time-segments it, transcribes each segment and rebases all evidence into one timeline.</div>
     {message&&<div className="notice" style={{marginTop:10}}>{message}</div>}
     <div className="mediaLayout" style={{marginTop:16}}>
       <div className="stack" style={{gap:14}}>
         <Card>
           <div className="row space gap8"><div className="row gap12"><div className="metricIcon"><Icon name="mic"/></div><div><strong>Audio / video source</strong><div className="small subtle">Сначала поставьте файл в очередь, чтобы повтор пережил перезагрузку.</div></div></div><Button tone={recording?'danger':'tonal'} icon={recording?'stop':'mic'} onClick={recording?stopRecording:startRecording}>{recording?'Stop':'Record'}</Button></div>
-          <label className="dropzone" style={{display:'block',marginTop:14}}><Icon name="upload_file" size={42}/><p style={{marginTop:8,fontWeight:650}}>{currentName||'Choose audio or video'}</p><p className="small subtle" style={{marginTop:4}}>{currentBlob?`${currentType||'Unknown type'} · ${fileSize(activeJob?.size||file?.size||0)}`:'Nothing leaves the device until Queue & transcribe is pressed.'}</p><input className="hiddenFile" type="file" accept="audio/*,video/mp4,video/webm" onChange={e=>chooseFile(e.target.files?.[0]||null)}/></label>
+          <label className="dropzone" style={{display:'block',marginTop:14}}><Icon name="upload_file" size={42}/><p style={{marginTop:8,fontWeight:650}}>{currentName||'Выберите аудио или видео'}</p><p className="small subtle" style={{marginTop:4}}>{currentBlob?`${currentType||'Тип не определён'} · ${fileSize(activeJob?.size||file?.size||0)}`:'Файл остаётся на устройстве, пока вы не нажмёте «Расшифровать».'}</p><input className="hiddenFile" type="file" accept="audio/*,video/mp4,video/webm" onChange={e=>chooseFile(e.target.files?.[0]||null)}/></label>
           {currentBlob&&previewUrl&&<div className="mediaPreview">{String(currentType).startsWith('video/')?<video controls src={previewUrl}/>:<audio controls src={previewUrl}/>}</div>}
-          <div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}>{file&&<Button icon="queue" onClick={transcribe} disabled={busy}>{busy?'Processing…':'Queue & transcribe'}</Button>}{activeJob&&activeJob.status!=='done'&&<Button icon="restart_alt" onClick={()=>resumeJob(activeJob)} disabled={busy}>Resume / retry</Button>}{result?.text&&<Button tone="tonal" icon="inventory_2" onClick={indexTranscript} disabled={busy||indexed}>{indexed?'Indexed':'Index transcript'}</Button>}{srt&&<Button tone="tonal" icon="download" onClick={()=>downloadText(`${currentName||'transcript'}.srt`,srt,'application/x-subrip')}>SRT</Button>}</div>
+          <div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}>{file&&<Button icon="queue" onClick={transcribe} disabled={busy}>{busy?'Processing…':'Queue & transcribe'}</Button>}{activeJob&&activeJob.status!=='done'&&<Button icon="restart_alt" onClick={()=>resumeJob(activeJob)} disabled={busy}>Resume / retry</Button>}{result?.text&&<Button tone="tonal" icon="inventory_2" onClick={indexTranscript} disabled={busy||indexed}>{indexed?'В поиске':'Добавить в поиск'}</Button>}{srt&&<Button tone="tonal" icon="download" onClick={()=>downloadText(`${currentName||'transcript'}.srt`,srt,'application/x-subrip')}>SRT</Button>}</div>
           {quality&&<div className="qualityRow"><span className={`qualityBadge ${quality.grade}`}>Extraction {quality.grade} · {Math.round((quality.score||0)*100)}%</span>{quality.warnings?.length>0&&<span className="tiny subtle">{quality.warnings.join(' ')}</span>}</div>}
         </Card>
         <Card><div className="row space"><div><h3>Durable queue</h3><p className="small subtle" style={{marginTop:4}}>Raw media stays local in IndexedDB for retry and evidence playback.</p></div><span className="tag">{jobs.length}</span></div><div className="jobList">{jobs.map(job=><div className={`jobRow ${activeJob?.id===job.id?'active':''}`} key={job.id}><button className="jobMain" onClick={()=>selectJob(job)}><div className="row space gap8"><strong>{job.filename}</strong><span className={`jobState ${job.status}`}>{job.status}</span></div><div className="tiny subtle" style={{marginTop:4}}>{fileSize(job.size)} · {job.transport||'pending'} · {Math.round((job.progress||0)*100)}% · attempts {job.attempts||0}{job.upload?.totalChunks?` · chunks ${job.upload.received||0}/${job.upload.totalChunks}`:''}{job.error?` · ${job.error}`:''}</div><div className="jobProgress"><span style={{width:`${Math.max(2,Math.round((job.progress||0)*100))}%`}}/></div></button><div className="row gap8">{job.status!=='done'&&<button className="iconBtn" title="Resume" onClick={()=>resumeJob(job)}><Icon name="restart_alt" size={17}/></button>}<button className="iconBtn" title="Delete" onClick={()=>removeJob(job)}><Icon name="delete" size={17}/></button></div></div>)}{!jobs.length&&<div className="empty small">Очередь обработки пуста.</div>}</div></Card>
@@ -975,7 +1006,7 @@ function YouTube({settings,setToast}){
   const inspect=async()=>{
     if(!url.trim())return
     setLoading(true);setMessage('');setVideo(null);setAnalysis('');setIndexed(false)
-    try{const data=await ingestYoutube(url.trim(),settings.youtubeEndpoint);setVideo(data);setMessage(data.status==='ready'?`${data.sections.length} caption segments loaded${data.autoCaptions?' · auto captions':''}`:'Metadata loaded, but this video exposed no retrievable captions.')}
+    try{const data=await ingestYoutube(url.trim(),settings.youtubeEndpoint);setVideo(data);setMessage(data.status==='ready'?`Получено ${data.sections.length} ${pluralRu(data.sections.length,'фрагмент','фрагмента','фрагментов')} субтитров${data.autoCaptions?' · автосубтитры':''}`:'Описание получено. Субтитров у этого видео нет — расшифровку не выдумываем.')}
     catch(error){setMessage(error.message)}finally{setLoading(false)}
   }
   const indexTranscript=async()=>{
@@ -992,11 +1023,11 @@ function YouTube({settings,setToast}){
   }
 
   return <div className="page">
-    <h1 className="headline">YouTube Research</h1><p className="subtle" style={{marginTop:5}}>Fetch real public metadata and exposed captions; never synthesize a transcript when captions are unavailable.</p>
+    <h1 className="headline">YouTube</h1><p className="subtle" style={{marginTop:5}}>Забирает описание видео и субтитры, если автор их опубликовал. Если субтитров нет — так и будет сказано: расшифровка не выдумывается.</p>
     <div className="searchRow" style={{marginTop:16}}><Input value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&inspect()} placeholder="https://youtube.com/watch?v=…"/><Button icon="download" onClick={inspect} disabled={!url.trim()||loading}>{loading?'Fetching…':'Fetch'}</Button></div>
     {message&&<div className="notice" style={{marginTop:14}}>{message}</div>}
     {video&&<div className="youtubeLayout" style={{marginTop:16}}>
-      <div><Card><div className="youtubeHero"><img src={video.thumbnail} alt=""/><div><h2 className="youtubeTitle">{video.title}</h2><div className="small subtle" style={{marginTop:5}}>{video.channel||'Unknown channel'}</div><div className="row gap8" style={{marginTop:10,flexWrap:'wrap'}}><span className="tag">{video.captionLanguage||'no caption language'}</span>{video.autoCaptions&&<span className="tag">auto captions</span>}<span className={`sourceStatus ${video.status==='ready'?'ready':'needs'}`}>{video.status==='ready'?'Transcript ready':'Metadata only'}</span></div></div></div>{video.id&&<div className="youtubeFrame"><iframe title={video.title} src={`https://www.youtube-nocookie.com/embed/${video.id}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/></div>}<div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}>{video.transcript&&<Button icon="inventory_2" onClick={indexTranscript} disabled={loading||indexed}>{indexed?'Indexed':'Index transcript'}</Button>}{video.transcript&&<Button tone="tonal" icon="summarize" onClick={analyze} disabled={loading}>Разобрать расшифровку</Button>}</div></Card>{analysis&&<Card className="resultBox" style={{marginTop:14}}><strong>Разбор расшифровки</strong><div style={{marginTop:10}}>{analysis}</div></Card>}</div>
+      <div><Card><div className="youtubeHero"><img src={video.thumbnail} alt=""/><div><h2 className="youtubeTitle">{video.title}</h2><div className="small subtle" style={{marginTop:5}}>{video.channel||'Канал не указан'}</div><div className="row gap8" style={{marginTop:10,flexWrap:'wrap'}}><span className="tag">{video.captionLanguage||'язык субтитров не указан'}</span>{video.autoCaptions&&<span className="tag">автосубтитры</span>}<span className={`sourceStatus ${video.status==='ready'?'ready':'needs'}`}>{video.status==='ready'?'Субтитры получены':'Только описание'}</span></div></div></div>{video.id&&<div className="youtubeFrame"><iframe title={video.title} src={`https://www.youtube-nocookie.com/embed/${video.id}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/></div>}<div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}>{video.transcript&&<Button icon="inventory_2" onClick={indexTranscript} disabled={loading||indexed}>{indexed?'В поиске':'Добавить в поиск'}</Button>}{video.transcript&&<Button tone="tonal" icon="summarize" onClick={analyze} disabled={loading}>Разобрать расшифровку</Button>}</div></Card>{analysis&&<Card className="resultBox" style={{marginTop:14}}><strong>Разбор расшифровки</strong><div style={{marginTop:10}}>{analysis}</div></Card>}</div>
       <Card><div className="row space"><h3>Captions</h3><span className="tag">{video.sections?.length||0}</span></div>{!video.sections?.length?<div className="empty small">No caption track was available to this connector. NoteAI does not invent one.</div>:<div className="transcriptList">{video.sections.map((section,index)=><div className="transcriptSegment" key={`${section.locator?.startSeconds||0}-${index}`}><span className="transcriptTime">{secondsLabel(section.locator?.startSeconds||0)}</span><div className="small" style={{marginTop:5,lineHeight:1.5}}>{section.text}</div></div>)}</div>}</Card>
     </div>}
   </div>
@@ -1015,14 +1046,24 @@ function Search({workspace,openEditor,settings}){
   </div>
 }
 
-function Graph({workspace,openEditor}){
+// Карта тем: кластеры по реальным тегам заметок.
+// Вид внутри «Заметок», а не отдельный экран — строится из тех же данных и
+// раньше был недостижим: на него не вела ни одна ссылка.
+function GraphView({workspace,openEditor}){
   const tags=useMemo(()=>{const m=new Map();workspace.notes.forEach(n=>(n.tags||[]).forEach(t=>m.set(t,[...(m.get(t)||[]),n])));return[...m.entries()].sort((a,b)=>b[1].length-a[1].length)},[workspace.notes])
-  return <div className="page"><h1 className="headline">Knowledge Graph</h1><p className="subtle" style={{marginTop:5}}>This version derives relationships from your real note tags instead of drawing a fixed sample SVG.</p><div className="split" style={{marginTop:16}}><Card><h3>Topics</h3><div className="graph" style={{marginTop:12}}>{tags.map(([tag,notes])=><div className="graphNode" key={tag}><strong>#{tag}</strong><div className="tiny subtle">{notes.length} note{notes.length===1?'':'s'}</div></div>)}{!tags.length&&<div className="empty">Добавьте теги к заметкам, чтобы построить граф.</div>}</div></Card><Card><h3>Connections</h3><div className="notesList">{workspace.notes.filter(n=>(n.tags||[]).length).map(n=><button key={n.id} className="chip" style={{textAlign:'left'}} onClick={()=>openEditor(n.id)}>{n.title} · {(n.tags||[]).map(t=>`#${t}`).join(' ')}</button>)}</div></Card></div></div>
+  const tagged=workspace.notes.filter(n=>(n.tags||[]).length)
+  if(!tags.length)return <div className="empty"><Icon name="hub" size={48}/><p style={{marginTop:8}}>Добавьте теги к заметкам, чтобы увидеть, как они связаны.</p></div>
+  return <div>
+    <div className="graph">{tags.map(([tag,notes])=><div className="graphNode" key={tag}><strong>#{tag}</strong><div className="tiny subtle">{notesLabel(notes.length)}</div></div>)}</div>
+    <div className="notesList" style={{marginTop:16}}>{tagged.map(n=><button key={n.id} className="chip" style={{textAlign:'left'}} onClick={()=>openEditor(n.id)}>{n.title||'Без названия'} · {(n.tags||[]).map(t=>`#${t}`).join(' ')}</button>)}</div>
+  </div>
 }
 
-function Tasks({workspace,setWorkspace}){
+// Задачи: вид внутри «Заметок». Раньше — отдельный экран, на который вела
+// одна ссылка с главной и ни одного пункта навигации.
+function TasksView({workspace,setWorkspace}){
   const[text,setText]=useState('');const[priority,setPriority]=useState('medium');const add=()=>{if(!text.trim())return;const d=new Date();d.setDate(d.getDate()+1);setWorkspace(w=>({...w,tasks:[{id:crypto.randomUUID?.()||String(Date.now()),text:text.trim(),done:false,priority,due:d.toISOString().slice(0,10),category:'Общее'},...w.tasks]}));setText('')};const toggle=id=>setWorkspace(w=>({...w,tasks:w.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)}));const del=id=>setWorkspace(w=>({...w,tasks:w.tasks.filter(t=>t.id!==id)}));const labels={urgent:'срочно',high:'высокий',medium:'средний',low:'низкий'}
-  return <div className="page"><h1 className="headline">Задачи</h1><div className="searchRow" style={{marginTop:14}}><Input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Добавить задачу…"/><select className="select" style={{maxWidth:150}} value={priority} onChange={e=>setPriority(e.target.value)}><option value="urgent">Срочно</option><option value="high">Высокий</option><option value="medium">Средний</option><option value="low">Низкий</option></select><Button icon="add" onClick={add}>Добавить</Button></div><div className="notesList">{workspace.tasks.map(t=><div className={`task ${t.done?'done':''}`} key={t.id}><button className={`check ${t.done?'on':''}`} onClick={()=>toggle(t.id)}>{t.done&&<Icon name="check" size={16}/>}</button><div><div style={{fontSize:14,fontWeight:650,textDecoration:t.done?'line-through':'none'}}>{t.text}</div><div className="tiny subtle">{t.category} · {new Date(t.due).toLocaleDateString('ru-RU')}</div></div><span className={`priority ${t.priority}`}>{labels[t.priority]||t.priority}</span><button className="iconBtn" onClick={()=>del(t.id)} aria-label="Удалить"><Icon name="delete" size={18}/></button></div>)}</div></div>
+  return <div><div className="searchRow"><Input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Добавить задачу…"/><select className="select" style={{maxWidth:150}} value={priority} onChange={e=>setPriority(e.target.value)}><option value="urgent">Срочно</option><option value="high">Высокий</option><option value="medium">Средний</option><option value="low">Низкий</option></select><Button icon="add" onClick={add}>Добавить</Button></div><div className="notesList">{workspace.tasks.map(t=><div className={`task ${t.done?'done':''}`} key={t.id}><button className={`check ${t.done?'on':''}`} onClick={()=>toggle(t.id)}>{t.done&&<Icon name="check" size={16}/>}</button><div><div style={{fontSize:14,fontWeight:650,textDecoration:t.done?'line-through':'none'}}>{t.text}</div><div className="tiny subtle">{t.category} · {new Date(t.due).toLocaleDateString('ru-RU')}</div></div><span className={`priority ${t.priority}`}>{labels[t.priority]||t.priority}</span><button className="iconBtn" onClick={()=>del(t.id)} aria-label="Удалить"><Icon name="delete" size={18}/></button></div>)}</div></div>
 }
 
 function Settings({workspace,setWorkspace,settings,setSettings,setToast}){
