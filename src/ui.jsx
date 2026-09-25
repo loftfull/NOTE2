@@ -21,6 +21,37 @@ export function Card({ children, className = '', ...rest }) {
   return <section className={`card ${className}`} {...rest}>{children}</section>
 }
 
+/**
+ * A card whose body is collapsed until asked for, with a one-line summary of
+ * its state while closed.
+ *
+ * The Profile screen was 4.4 screens of scrolling, two thirds of it server
+ * configuration: six endpoint fields, account sync, the legacy sync mode and
+ * storage. None of it is wrong to have, and deleting it would remove working
+ * features — but a personal notebook should not open on a wall of URL fields.
+ * Collapsed with a status line, each block says whether it needs attention
+ * without costing a screen.
+ *
+ * Uses <details>/<summary> so it is keyboard-operable and open-by-find works
+ * in browsers that support it, rather than a div with a click handler.
+ */
+export function Disclosure({ title, summary, tone = 'neutral', defaultOpen = false, children }) {
+  return (
+    <details className="disclosure card" open={defaultOpen}>
+      <summary className="disclosureHead">
+        <div className="disclosureText">
+          <h3>{title}</h3>
+          {summary ? <p className={`small ${tone === 'neutral' ? 'subtle' : `disclosureTone ${tone}`}`}>{summary}</p> : null}
+        </div>
+        <span className="disclosureChevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 10l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </span>
+      </summary>
+      <div className="disclosureBody">{children}</div>
+    </details>
+  )
+}
+
 export function Input(props) {
   return <input {...props} className={`input ${props.className || ''}`} />
 }

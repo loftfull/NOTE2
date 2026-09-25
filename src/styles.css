@@ -1295,3 +1295,54 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   :root { --line: var(--line-strong); --ink-2: var(--ink); --ink-3: #4a5058 }
   .card, .noteRow, .unifiedSourceRow, .modelCard { border: 1px solid var(--line-strong) }
 }
+
+/* ── Раскрывающийся блок ─────────────────────────────────────────────────
+   Профиль занимал 4,4 экрана, две трети — настройки сервера. Эти блоки
+   свёрнуты и показывают своё состояние строкой, пока закрыты. Геометрия
+   общая с карточками: та же высота шапки, что у --ctl-h, те же отступы. */
+.disclosure { padding: 0; overflow: hidden; }
+
+.disclosure > .disclosureHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  min-height: var(--ctl-h);
+  user-select: none;
+}
+/* Safari и Chrome рисуют свой треугольник — он ломает выравнивание. */
+.disclosure > .disclosureHead::-webkit-details-marker { display: none; }
+.disclosure > .disclosureHead::marker { content: ''; }
+
+.disclosureText { flex: 1; min-width: 0; }
+.disclosureText h3 { margin: 0; }
+.disclosureText p { margin: 3px 0 0; }
+
+.disclosureTone.ok { color: var(--ok, #0f8a5f); }
+.disclosureTone.warn { color: var(--warn, #9a6b00); }
+
+.disclosureChevron {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--sq, 36px);
+  height: var(--sq, 36px);
+  border-radius: 50%;
+  color: var(--ink-2, #6b6b6b);
+  transition: transform .18s ease;
+}
+.disclosure[open] > .disclosureHead .disclosureChevron { transform: rotate(180deg); }
+
+.disclosureBody { padding: 0 16px 16px; }
+
+.disclosure > .disclosureHead:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosureChevron { transition: none; }
+}
