@@ -3,6 +3,7 @@ import { Icon } from './icons.jsx'
 import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
 import { discoverGateway } from './gateway-discovery.js'
+import { clearSearchHistory, loadSearchHistory, rememberSearch } from './search-history.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
 import { embedWithSettings, hasAiRoute, hasEmbedRoute, runTask } from './model-runtime.js'
 import { notesLabel, pluralRu, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
@@ -1035,13 +1036,54 @@ function YouTube({settings,setToast}){
 
 function Search({workspace,openEditor,settings}){
   const[q,setQ]=useState('');const[mode,setMode]=useState('semantic');const[sourceResults,setSourceResults]=useState([]);const[searching,setSearching]=useState(false);const[selectedSource,setSelectedSource]=useState(null)
+  const[history,setHistory]=useState(()=>loadSearchHistory())
+  // «Гибридный» режим требует векторов. Без подключённой модели он работает
+  // ровно как поиск по словам — переключатель есть, разницы нет. Говорим об
+  // этом прямо, вместо того чтобы предлагать выбор без последствий.
+  const vectorsAvailable=hasEmbedRoute(settings)
+  const tags=useMemo(()=>{const counts=new Map();workspace.notes.forEach(n=>(n.tags||[]).forEach(t=>counts.set(t,(counts.get(t)||0)+1)));return[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([tag])=>tag)},[workspace.notes])
+
   const noteResults=useMemo(()=>{if(!q.trim())return[];const needle=q.toLowerCase();return workspace.notes.map(n=>({note:n,score:mode==='semantic'?semanticScore(q,n):(`${n.title} ${n.content} ${(n.tags||[]).join(' ')}`.toLowerCase().includes(needle)?1:0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,12)},[q,mode,workspace.notes])
   useEffect(()=>{let cancelled=false;const query=q.trim();if(!query){setSourceResults([]);setSearching(false);return()=>{cancelled=true}}setSearching(true);const timer=setTimeout(async()=>{try{const[sources,chunks]=await Promise.all([listSources(),listChunks()]);let queryVector=null;if(mode==='semantic'&&hasEmbedRoute(settings)&&chunks.some(c=>Array.isArray(c.vector)&&c.vector.length)){try{const embedded=await embedWithSettings(settings,[query]);queryVector=embedded[0]||null}catch{}}const matches=rankChunks({query,chunks,sources,queryVector,limit:12});if(!cancelled)setSourceResults(matches)}catch{if(!cancelled)setSourceResults([])}finally{if(!cancelled)setSearching(false)}},180);return()=>{cancelled=true;clearTimeout(timer)}},[q,mode,settings?.embedEndpoint,settings?.models,settings?.activeModelId])
   const total=noteResults.length+sourceResults.length
-  return <div className="page"><h1 className="headline">Поиск</h1><p className="subtle small" style={{marginTop:5}}>Единый поиск по заметкам и всем проиндексированным фрагментам источников.</p><div className="segmented" style={{margin:'14px 0',maxWidth:330}}><button className={mode==='semantic'?'active':''} onClick={()=>setMode('semantic')}>Гибридный</button><button className={mode==='keyword'?'active':''} onClick={()=>setMode('keyword')}>По словам</button></div><Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Найти мысль, заметку или фрагмент источника…"/>{q&&<div className="small subtle" style={{marginTop:10}}>{searching?'Ищу в источниках…':`${resultsLabel(total)}`}</div>}
-    {!!noteResults.length&&<section style={{marginTop:18}}><div className="row gap8"><Icon name="description" size={18}/><h3>Notes</h3></div><div className="notesList">{noteResults.map(({note,score})=><div key={note.id} style={{position:'relative'}}><NoteRow note={note} onOpen={()=>openEditor(note.id)}/><span className="tag" style={{position:'absolute',right:12,top:12}}>{Math.round(score*100)}%</span></div>)}</div></section>}
-    {!!sourceResults.length&&<section style={{marginTop:18}}><div className="row gap8"><Icon name="inventory_2" size={18}/><h3>Source Vault</h3></div><div className="searchSourceList">{sourceResults.map(({chunk,source,score},i)=><button className="searchSourceResult" key={`${chunk.id||chunk.sourceId}:${i}`} onClick={()=>source&&setSelectedSource({source,locator:chunk.locator,excerpt:chunk.text})}><div className="row space gap8"><strong>{source?.name||'Untitled source'}</strong><span className="tag">{Math.round(score*100)}%</span></div><div className="tiny subtle" style={{marginTop:4}}>{source?.kind||'text'}{locatorLabel(chunk.locator,chunk.sectionLabel)?` · ${locatorLabel(chunk.locator,chunk.sectionLabel)}`:''}</div><div className="small searchSourceSnippet">{chunk.text}</div></button>)}</div></section>}
+
+  // Запрос попадает в историю, когда поиск отработал и что-то нашёл, а не на
+  // каждое нажатие клавиши — иначе список забьётся префиксами одного слова.
+  useEffect(()=>{
+    const query=q.trim()
+    if(query.length<2||searching||!total)return
+    const timer=setTimeout(()=>setHistory(rememberSearch(query)),700)
+    return()=>clearTimeout(timer)
+  },[q,searching,total])
+
+  return <div className="page"><h1 className="headline">Поиск</h1><p className="subtle small" style={{marginTop:5}}>Единый поиск по заметкам и всем проиндексированным фрагментам источников.</p><div className="segmented" style={{margin:'14px 0',maxWidth:330}}><button className={mode==='semantic'?'active':''} onClick={()=>setMode('semantic')}>По смыслу</button><button className={mode==='keyword'?'active':''} onClick={()=>setMode('keyword')}>По словам</button></div>
+    {mode==='semantic'&&!vectorsAvailable&&<p className="small subtle" style={{marginTop:-6,marginBottom:12}}>Поиск по смыслу работает по совпадению слов: для настоящего смыслового поиска нужна модель с ролью «векторный поиск».</p>}<Input value={q} onChange={e=>setQ(e.target.value)} placeholder="Найти мысль, заметку или фрагмент источника…"/>{q&&<div className="small subtle" style={{marginTop:10}}>{searching?'Ищу в источниках…':`${resultsLabel(total)}`}</div>}
+    {!!noteResults.length&&<section style={{marginTop:18}}><div className="row gap8"><Icon name="description" size={18}/><h3>Заметки</h3></div><div className="notesList">{noteResults.map(({note,score})=><div key={note.id} style={{position:'relative'}}><NoteRow note={note} onOpen={()=>openEditor(note.id)}/><span className="tag" style={{position:'absolute',right:12,top:12}}>{Math.round(score*100)}%</span></div>)}</div></section>}
+    {!!sourceResults.length&&<section style={{marginTop:18}}><div className="row gap8"><Icon name="inventory_2" size={18}/><h3>Источники</h3></div><div className="searchSourceList">{sourceResults.map(({chunk,source,score},i)=><button className="searchSourceResult" key={`${chunk.id||chunk.sourceId}:${i}`} onClick={()=>source&&setSelectedSource({source,locator:chunk.locator,excerpt:chunk.text})}><div className="row space gap8"><strong>{source?.name||'Источник без названия'}</strong><span className="tag">{Math.round(score*100)}%</span></div><div className="tiny subtle" style={{marginTop:4}}>{source?.kind||'text'}{locatorLabel(chunk.locator,chunk.sectionLabel)?` · ${locatorLabel(chunk.locator,chunk.sectionLabel)}`:''}</div><div className="small searchSourceSnippet">{chunk.text}</div></button>)}</div></section>}
     {q&&!searching&&!total&&<div className="empty"><Icon name="search_off" size={42}/><p style={{marginTop:8}}>Ничего не найдено — ни в заметках, ни в проиндексированных источниках.</p></div>}
+
+    {/* Пустой экран поиска раньше был полем и двумя переключателями: он не
+        обещал ничего и ничему не учил. Здесь — то, что искали раньше, и то,
+        по чему вообще можно искать, из реальных данных. */}
+    {!q&&<div className="searchStart">
+      {!!history.length&&<section>
+        <div className="row space"><h3>Недавние запросы</h3><button className="textAction" onClick={()=>setHistory(clearSearchHistory())}>Очистить</button></div>
+        <div className="chips" style={{marginTop:10}}>{history.map(item=><button className="chip" key={item} onClick={()=>setQ(item)}><Icon name="history" size={16}/>{item}</button>)}</div>
+      </section>}
+
+      {!!tags.length&&<section style={{marginTop:history.length?18:0}}>
+        <h3>Ваши темы</h3>
+        <div className="chips" style={{marginTop:10}}>{tags.map(tag=><button className="chip" key={tag} onClick={()=>setQ(tag)}>#{tag}</button>)}</div>
+      </section>}
+
+      <section style={{marginTop:(history.length||tags.length)?18:0}}>
+        <h3>Где ищем</h3>
+        <div className="searchScopeList">
+          <div className="searchScopeRow"><Icon name="description" size={20}/><div><strong>{notesLabel(workspace.notes.length)}</strong><p className="small subtle">Заголовки, текст и теги</p></div></div>
+          <div className="searchScopeRow"><Icon name="inventory_2" size={20}/><div><strong>Проиндексированные источники</strong><p className="small subtle">Фрагменты с привязкой к странице, моменту записи или посту</p></div></div>
+        </div>
+      </section>
+    </div>}
     <SourcePreview selection={selectedSource} onClose={()=>setSelectedSource(null)}/>
   </div>
 }

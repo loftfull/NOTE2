@@ -1346,3 +1346,29 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 @media (prefers-reduced-motion: reduce) {
   .disclosureChevron { transition: none; }
 }
+
+/* ── Пустой экран поиска ─────────────────────────────────────────────────
+   Раньше здесь было только поле. Эти блоки показывают, что искали раньше и
+   по чему вообще можно искать — из реальных данных, а не из примеров. */
+.searchStart { margin-top: 20px; }
+.searchStart h3 { margin: 0; }
+
+.searchScopeList {
+  display: grid;
+  gap: 10px;
+}
+
+.searchScopeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md, 14px);
+  background: var(--surface-1, rgba(255, 255, 255, .55));
+}
+.searchScopeRow > :first-child { flex: none; margin-top: 2px; color: var(--ink-2, #6b6b6b); }
+/* Дети идут в столбец: иначе strong и p склеиваются в одну строку — та же
+   ошибка, что раньше слепила название источника с его фрагментом. */
+.searchScopeRow > div:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.searchScopeRow p { margin: 0; }

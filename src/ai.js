@@ -1,10 +1,22 @@
 import { authenticatedFetch } from './api-session.js'
 import { resolveGatewayEndpoint } from './gateway-url.js'
 import { chatCompletion } from './providers.js'
+import { stemRu } from './stem-ru.js'
 const STOP = new Set('the a an and or but of to in on for with from as is are was were be been being this that these those it its by at into about your you we our they their i me my have has had can could should would will may might not no do does did if then than also very more most some any all'.split(' '))
 
 export function tokenize(text) {
   return (text.toLowerCase().match(/[a-zа-яё0-9][a-zа-яё0-9-]{1,}/gi) || []).filter(w => !STOP.has(w))
+}
+
+/**
+ * Слова, приведённые к основам — для сопоставления, а не для показа.
+ *
+ * tokenize() оставлен как есть: его результат показывают человеку в виде
+ * тегов, а «#заметк» вместо «#заметки» выглядит как поломка. Сравнивать же
+ * словоформы буквально нельзя: запрос «хлеб» не находил «Рецепт хлеба».
+ */
+export function tokenizeStems(text) {
+  return tokenize(text).map(word => stemRu(word))
 }
 
 export function extractKeywords(text, limit = 8) {
@@ -26,12 +38,12 @@ export function summarizeLocal(text, maxSentences = 4) {
 }
 
 export function semanticScore(query, note) {
-  const q = new Set(tokenize(query))
-  const n = new Set(tokenize(`${note.title} ${note.content} ${(note.tags || []).join(' ')}`))
+  const q = new Set(tokenizeStems(query))
+  const n = new Set(tokenizeStems(`${note.title} ${note.content} ${(note.tags || []).join(' ')}`))
   if (!q.size) return 0
   let overlap = 0
   for (const term of q) if (n.has(term)) overlap += 1
-  const titleBoost = tokenize(note.title).some(t => q.has(t)) ? 0.2 : 0
+  const titleBoost = tokenizeStems(note.title).some(t => q.has(t)) ? 0.2 : 0
   return Math.min(1, overlap / q.size + titleBoost)
 }
 

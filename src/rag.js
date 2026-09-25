@@ -1,4 +1,4 @@
-import { tokenize } from './ai.js'
+import { tokenizeStems } from './ai.js'
 
 export function cosineSimilarity(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b) || !a.length || a.length !== b.length) return 0
@@ -12,11 +12,11 @@ export function cosineSimilarity(a, b) {
 }
 
 export function lexicalChunkScore(query, chunk, source) {
-  const terms = tokenize(query)
+  const terms = tokenizeStems(query)
   if (!terms.length) return 0
-  const body = tokenize(chunk.text || '')
+  const body = tokenizeStems(chunk.text || '')
   const bodySet = new Set(body)
-  const titleSet = new Set(tokenize(source?.name || source?.title || ''))
+  const titleSet = new Set(tokenizeStems(source?.name || source?.title || ''))
   let hits = 0
   let titleHits = 0
   for (const term of new Set(terms)) {
