@@ -29,6 +29,18 @@ export function sendError(res, status, message, extra = null, headers = null) {
   sendJson(res, status, { error: String(message || 'Внутренняя ошибка сервера'), ...(extra || {}) }, headers)
 }
 
+/**
+ * То, что показывают клиенту, когда внутри случилось непредвиденное.
+ *
+ * Сообщения HttpError написаны для человека и уходят как есть — их текст
+ * выбран осознанно. Всё остальное — случайные ошибки рантайма, и их текст
+ * писал не я: «Не удалось прочитать /tmp/note2-data/accounts.json: Expected
+ * property name...» раскрывает раскладку файловой системы, ОС и каталог
+ * установки. Такие ответы заменяются общим сообщением, а настоящая ошибка со
+ * стеком уходит в лог сервера, где её читает владелец.
+ */
+const OPAQUE_SERVER_ERROR = 'Внутренняя ошибка сервера. Подробности — в журнале шлюза.'
+
 /** Turns a thrown value into a status and a message meant for a person. */
 export function describeError(error) {
   const message = error?.message || 'Внутренняя ошибка сервера'
@@ -39,7 +51,8 @@ export function describeError(error) {
   if (/Некорректн|не настроен|Поддерживаются|Нужна ссылка|больше допустимых|Слишком много|по кругу|внутренний или служебный|localhost/i.test(message)) {
     return { status: 400, message, data, headers }
   }
-  return { status: 500, message, data, headers }
+  // Ни HttpError, ни знакомая ошибка проверки — значит текст писал не я.
+  return { status: 500, message: OPAQUE_SERVER_ERROR, data: null, headers }
 }
 
 export class HttpError extends Error {

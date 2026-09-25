@@ -4,6 +4,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { once } from 'node:events'
 import { createGateway } from '../server.mjs'
 import { loadConfig } from '../server/config.mjs'
@@ -222,5 +225,50 @@ test('POST /api/youtube is routed and validates its input', async () => {
     })
     assert.equal(response.status, 400)
     assert.match((await response.json()).error, /не похоже на ссылку YouTube/)
+  })
+})
+
+test('непредвиденная ошибка не раскрывает внутренности сервера', async () => {
+  // На статусе 500 клиенту уходил текст случайной ошибки рантайма — вместе с
+  // абсолютным путём на диске: «Не удалось прочитать
+  // /tmp/note2-data/accounts.json: Expected property name...». Это раскрывает
+  // раскладку файловой системы, ОС и каталог установки.
+  const dataDir = await mkdtemp(join(tmpdir(), 'note2-opaque-'))
+  await writeFile(join(dataDir, 'accounts.json'), '{ это не json')
+  const config = loadConfig({ NOTE2_DATA_DIR: dataDir, NOTE2_STATIC_DIR: 'no-such-dir', NOTE2_REGISTRATION_TOKEN: 'tok' })
+  const server = createGateway(config)
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/account/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'a@example.com', password: 'пароль достаточной длины' })
+    })
+    const data = await response.json()
+    assert.equal(response.status, 500)
+    assert.doesNotMatch(data.error, /\/(home|tmp|var|root|Users)\//, 'путь на сервере не показывают')
+    assert.doesNotMatch(data.error, /\.json|\.mjs|node_modules/, 'имена файлов не показывают')
+    assert.match(data.error, /журнале/, 'вместо этого говорят, где смотреть')
+  } finally {
+    server.close()
+    await rm(dataDir, { recursive: true, force: true })
+  }
+})
+
+test('намеренные сообщения об ошибке доходят до пользователя целиком', async () => {
+  // Обратная сторона: заглушить всё подряд означало бы спрятать и те тексты,
+  // которые написаны для человека и объясняют, что делать.
+  await withGateway({}, async base => {
+    const response = await fetch(`${base}/api/source-url`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'http://169.254.169.254/' })
+    })
+    assert.match((await response.json()).error, /внутренний или служебный/)
+
+    const ai = await fetch(`${base}/api/ai`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: 'x' })
+    })
+    assert.equal(ai.status, 503)
+    assert.match((await ai.json()).error, /NOTE2_AI_BASE_URL/, 'переменную, которую надо задать, по-прежнему называют')
   })
 })
