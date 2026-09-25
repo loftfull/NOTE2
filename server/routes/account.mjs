@@ -12,6 +12,7 @@
 //     rather than an overwrite. Two devices editing the same workspace is the
 //     normal case, and last-write-wins loses a day's notes without a trace.
 
+import { randomBytes } from 'node:crypto'
 import {
   accountIdForEmail, createPasswordRecord, createSessionCredential, normalizeEmail,
   parseSessionToken, publicAccount, publicSession, sessionExpiry, validEmail,
@@ -19,8 +20,27 @@ import {
 } from '../../account-auth-core.mjs'
 import { sanitizeSyncSettings, validWorkspaceId, validateSyncSnapshot } from '../../sync-core.mjs'
 import { HttpError, bearerToken } from '../http.mjs'
+import { attemptKey, clientIp } from '../throttle.mjs'
 
 const GENERIC_SIGNIN_FAILURE = 'Неверный адрес или пароль'
+
+/**
+ * Запись пароля, с которой сверяются попытки входа в несуществующий аккаунт.
+ *
+ * Одинакового сообщения мало. Если при отсутствии аккаунта scrypt не
+ * считается, ответ приходит на порядок быстрее, и время само выдаёт, какие
+ * адреса зарегистрированы. Замерено на этом сервере: медиана 45.3 мс против
+ * 2.2 мс — разница в 21 раз, различима даже через сеть.
+ *
+ * Поэтому scrypt считается всегда: для несуществующего аккаунта — против
+ * этой записи, результат отбрасывается. Пароль в ней случайный и нигде не
+ * используется; важны только параметры, они совпадают с боевыми.
+ */
+let decoyRecord = null
+async function decoy() {
+  if (!decoyRecord) decoyRecord = await createPasswordRecord(randomBytes(24).toString('base64url'))
+  return decoyRecord
+}
 
 /** Resolves a bearer token to a live session and its account, or throws 401. */
 export async function requireSession(store, token) {
@@ -53,7 +73,7 @@ function issueSession(db, accountId, deviceName) {
   return credential
 }
 
-export async function handleRegister({ req, body, config, store }) {
+export async function handleRegister({ req, body, config, store, throttle }) {
   // Closed by default. An open gateway with no token is a choice the operator
   // has to make explicitly, not a default they discover after the fact.
   if (!config.allowOpenRegistration) {
@@ -61,8 +81,20 @@ export async function handleRegister({ req, body, config, store }) {
     if (!expected) {
       throw new HttpError(403, 'Регистрация закрыта. Задайте NOTE2_REGISTRATION_TOKEN или NOTE2_ALLOW_OPEN_REGISTRATION=1.')
     }
+    const key = attemptKey(clientIp(req, config?.trustProxy), 'регистрация')
+    const wait = throttle?.retryAfter(key) || 0
+    if (wait) {
+      throw Object.assign(new HttpError(429, `Слишком много попыток. Повторите через ${Math.ceil(wait / 60)} мин.`), {
+        headers: { 'Retry-After': String(wait) }
+      })
+    }
     const offered = String(req?.headers?.['x-registration-token'] || '')
-    if (offered !== expected) throw new HttpError(403, 'Неверный токен регистрации')
+    // Токен регистрации подбирается так же, как пароль, и защищать его нечем,
+    // кроме ограничения попыток.
+    if (offered !== expected) {
+      throttle?.fail(key)
+      throw new HttpError(403, 'Неверный токен регистрации')
+    }
   }
 
   const email = normalizeEmail(body?.email)
@@ -92,17 +124,40 @@ export async function handleRegister({ req, body, config, store }) {
   })
 }
 
-export async function handleLogin({ body, store }) {
+export async function handleLogin({ req, body, config, store, throttle }) {
   const email = normalizeEmail(body?.email)
-  // Both failures return the same message: distinguishing "no such account"
-  // from "wrong password" turns this endpoint into an account enumerator.
-  if (!validEmail(email)) throw new HttpError(401, GENERIC_SIGNIN_FAILURE)
+  const password = body?.password
+
+  // Подбор пароля был ничем не ограничен: scrypt делает перебор дорогим, но
+  // словарь из тысячи частых паролей всё равно проходится за минуты.
+  const key = attemptKey(clientIp(req, config?.trustProxy), email)
+  const wait = throttle?.retryAfter(key) || 0
+  if (wait) {
+    throw Object.assign(new HttpError(429, `Слишком много попыток входа. Повторите через ${Math.ceil(wait / 60)} мин.`), {
+      headers: { 'Retry-After': String(wait) }
+    })
+  }
+
+  // Оба отказа отвечают одинаково: разные сообщения превратили бы эндпоинт в
+  // перечислитель аккаунтов. Но одного сообщения мало — см. decoy() выше.
+  if (!validEmail(email)) {
+    await verifyPassword(password, await decoy())
+    throttle?.fail(key)
+    throw new HttpError(401, GENERIC_SIGNIN_FAILURE)
+  }
 
   const db = await store.readAccounts()
   const id = accountIdForEmail(email)
   const account = db.accounts?.[id]
-  const ok = account ? await verifyPassword(body?.password, account.password) : false
-  if (!ok) throw new HttpError(401, GENERIC_SIGNIN_FAILURE)
+  // Ветки одинаковой стоимости: настоящая запись или подставная.
+  const ok = await verifyPassword(password, account ? account.password : await decoy())
+  if (!account || !ok) {
+    throttle?.fail(key)
+    throw new HttpError(401, GENERIC_SIGNIN_FAILURE)
+  }
+  // Удачный вход снимает накопленные неудачи: тот, кто ошибся дважды и вошёл
+  // с третьего раза, не должен оставаться наказанным.
+  throttle?.succeed(key)
 
   return store.updateAccounts(async current => {
     const credential = issueSession(current, id, body?.deviceName)

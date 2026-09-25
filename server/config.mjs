@@ -48,6 +48,10 @@ export function loadConfig(env = process.env) {
     accountRegistrationToken: read('NOTE2_REGISTRATION_TOKEN'),
     // The pre-account sync mode: one shared token, off unless it is set.
     legacySyncToken: read('NOTE2_SYNC_TOKEN'),
+    // За обратным прокси адрес клиента приходит в X-Forwarded-For. Без этого
+    // флага заголовок игнорируется: доверять ему по умолчанию значит отдать
+    // обход ограничения попыток одной строкой в запросе.
+    trustProxy: read('NOTE2_TRUST_PROXY') === '1',
     allowOpenRegistration: read('NOTE2_ALLOW_OPEN_REGISTRATION') === '1',
 
     limits: {

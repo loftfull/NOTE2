@@ -7,9 +7,10 @@
 
 export const JSON_TYPE = 'application/json; charset=utf-8'
 
-export function sendJson(res, status, payload) {
+export function sendJson(res, status, payload, extraHeaders = null) {
   const body = Buffer.from(JSON.stringify(payload ?? {}), 'utf8')
   res.writeHead(status, {
+    ...(extraHeaders || {}),
     'Content-Type': JSON_TYPE,
     'Content-Length': body.length,
     'Cache-Control': 'no-store',
@@ -21,23 +22,24 @@ export function sendJson(res, status, payload) {
   res.end(body)
 }
 
-export function sendError(res, status, message, extra = null) {
+export function sendError(res, status, message, extra = null, headers = null) {
   // `extra` carries machine-readable detail alongside the message — a push
   // conflict returns currentRevision so the client can say which revision it
   // is behind instead of only that something went wrong.
-  sendJson(res, status, { error: String(message || 'Внутренняя ошибка сервера'), ...(extra || {}) })
+  sendJson(res, status, { error: String(message || 'Внутренняя ошибка сервера'), ...(extra || {}) }, headers)
 }
 
 /** Turns a thrown value into a status and a message meant for a person. */
 export function describeError(error) {
   const message = error?.message || 'Внутренняя ошибка сервера'
   const data = error?.data && typeof error.data === 'object' ? error.data : null
-  if (error?.status) return { status: Number(error.status), message, data }
-  if (error?.code === 'EBLOCKEDADDRESS') return { status: 400, message, data }
+  const headers = error?.headers && typeof error.headers === 'object' ? error.headers : null
+  if (error?.status) return { status: Number(error.status), message, data, headers }
+  if (error?.code === 'EBLOCKEDADDRESS') return { status: 400, message, data, headers }
   if (/Некорректн|не настроен|Поддерживаются|Нужна ссылка|больше допустимых|Слишком много|по кругу|внутренний или служебный|localhost/i.test(message)) {
-    return { status: 400, message, data }
+    return { status: 400, message, data, headers }
   }
-  return { status: 500, message, data }
+  return { status: 500, message, data, headers }
 }
 
 export class HttpError extends Error {

@@ -346,3 +346,127 @@ test('legacy sync storage never collides with an account workspace', async () =>
     assert.equal(legacy.status, 404, 'the legacy token must not see the account workspace')
   })
 })
+
+// --- ограничение попыток входа ---------------------------------------------
+
+test('подбор пароля упирается в стену, а не идёт бесконечно', async () => {
+  // До этого сервер честно считал scrypt на каждый запрос и отвечал отказом
+  // сколько угодно раз. scrypt делает перебор дорогим, но словарь из тысячи
+  // частых паролей всё равно проходится.
+  await withGateway({}, async ({ api, register }) => {
+    await register('victim@example.com')
+
+    let blockedAt = 0
+    for (let attempt = 1; attempt <= 12; attempt += 1) {
+      const response = await api('/api/account/login', {
+        method: 'POST', body: { email: 'victim@example.com', password: `догадка номер ${attempt}` }
+      })
+      if (response.status === 429) { blockedAt = attempt; break }
+      assert.equal(response.status, 401, `попытка ${attempt}`)
+    }
+    assert.ok(blockedAt > 0 && blockedAt <= 9, `блокировка наступила на попытке ${blockedAt}`)
+
+    // И правильный пароль тоже не проходит, пока держится блокировка —
+    // иначе ограничение обходится угадыванием прямо в момент блокировки.
+    const correct = await api('/api/account/login', { method: 'POST', body: { email: 'victim@example.com', password: PASSWORD } })
+    assert.equal(correct.status, 429)
+    assert.match(correct.data.error, /Слишком много попыток/)
+  })
+})
+
+test('блокировка не задевает другой аккаунт с того же адреса', async () => {
+  // Ключ — пара «клиент + почта». Только по IP один NAT наказывал бы всех.
+  await withGateway({}, async ({ api, register }) => {
+    await register('one@example.com')
+    await register('two@example.com')
+    for (let i = 0; i < 10; i += 1) {
+      await api('/api/account/login', { method: 'POST', body: { email: 'one@example.com', password: `нет ${i}` } })
+    }
+    assert.equal((await api('/api/account/login', { method: 'POST', body: { email: 'one@example.com', password: PASSWORD } })).status, 429)
+    const other = await api('/api/account/login', { method: 'POST', body: { email: 'two@example.com', password: PASSWORD } })
+    assert.equal(other.status, 200, 'второй аккаунт входит нормально')
+  })
+})
+
+test('удачный вход снимает накопленные неудачи', async () => {
+  await withGateway({}, async ({ api, register }) => {
+    await register('user@example.com')
+    for (let i = 0; i < 4; i += 1) {
+      await api('/api/account/login', { method: 'POST', body: { email: 'user@example.com', password: 'не тот' } })
+    }
+    assert.equal((await api('/api/account/login', { method: 'POST', body: { email: 'user@example.com', password: PASSWORD } })).status, 200)
+    // После успеха снова доступен полный запас попыток.
+    for (let i = 0; i < 5; i += 1) {
+      const r = await api('/api/account/login', { method: 'POST', body: { email: 'user@example.com', password: 'снова не тот' } })
+      assert.equal(r.status, 401, `после успеха попытка ${i + 1} ещё не блокируется`)
+    }
+  })
+})
+
+test('перебор токена регистрации тоже ограничен', async () => {
+  await withGateway({}, async ({ api }) => {
+    let blocked = false
+    for (let i = 0; i < 12; i += 1) {
+      const r = await api('/api/account/register', {
+        // Заголовки — ByteString, кириллица в них недопустима.
+        method: 'POST', headers: { 'X-Registration-Token': `guess-${i}` },
+        body: { email: `a${i}@example.com`, password: PASSWORD }
+      })
+      if (r.status === 429) { blocked = true; break }
+      assert.equal(r.status, 403)
+    }
+    assert.ok(blocked, 'токен регистрации нечем защитить, кроме ограничения попыток')
+  })
+})
+
+test('ответ 429 несёт Retry-After', async () => {
+  await withGateway({}, async ({ base, register }) => {
+    await register('ra@example.com')
+    let response
+    for (let i = 0; i < 12; i += 1) {
+      response = await fetch(`${base}/api/account/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'ra@example.com', password: `нет ${i}` })
+      })
+      if (response.status === 429) break
+    }
+    assert.equal(response.status, 429)
+    const retryAfter = Number(response.headers.get('retry-after'))
+    assert.ok(retryAfter > 0, `Retry-After = ${retryAfter}`)
+  })
+})
+
+test('время ответа не выдаёт, зарегистрирован ли адрес', async () => {
+  // Одинакового сообщения мало. Пока при отсутствии аккаунта scrypt не
+  // считался, ответ приходил за 2.2 мс против 45.3 мс — разница в 21 раз,
+  // различимая даже через сеть. Тест сравнивает медианы: он не про точное
+  // время, а про порядок величины.
+  await withGateway({}, async ({ base, register }) => {
+    await register('exists@example.com')
+
+    const timeLogin = async email => {
+      const started = process.hrtime.bigint()
+      const response = await fetch(`${base}/api/account/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: 'заведомо неверный пароль' })
+      })
+      await response.json()
+      return Number(process.hrtime.bigint() - started) / 1e6
+    }
+
+    // Прогрев: первый scrypt в процессе всегда медленнее.
+    for (let i = 0; i < 2; i += 1) { await timeLogin('exists@example.com'); await timeLogin('nobody@example.com') }
+
+    const existing = [], missing = []
+    for (let i = 0; i < 5; i += 1) {
+      existing.push(await timeLogin('exists@example.com'))
+      missing.push(await timeLogin('nobody@example.com'))
+    }
+    const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]
+    const ratio = median(existing) / median(missing)
+
+    // Порог с запасом: дефект давал ×21, исправленный код держится около ×1.
+    assert.ok(ratio < 4 && ratio > 0.25,
+      `отношение медиан ${ratio.toFixed(1)} — время ответа выдаёт существование аккаунта`)
+  })
+})

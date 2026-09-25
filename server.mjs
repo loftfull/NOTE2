@@ -40,6 +40,7 @@ import {
 } from './server/routes/uploads.mjs'
 import { handleInstagram, handleInstagramMedia } from './server/routes/instagram.mjs'
 import { createStore } from './server/store.mjs'
+import { createThrottle } from './server/throttle.mjs'
 
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -114,7 +115,13 @@ async function serveStatic(req, res, config) {
 function buildRoutes(config, deps = {}) {
   const store = deps.store || createStore(config.dataDir)
   const uploads = deps.uploads || createUploadManager(config)
-  const withStore = handler => ctx => handler({ ...ctx, store })
+  // Счётчик попыток входа живёт в памяти процесса: шлюз однонодовый, а
+  // перезапуск, сбрасывающий счётчики, дешевле зависимости на хранилище ради
+  // данных, живущих минуты. Периодическая уборка не даёт карте расти вечно.
+  const throttle = deps.throttle || createThrottle()
+  const sweeper = setInterval(() => throttle.sweep(), 5 * 60 * 1000)
+  sweeper.unref?.()
+  const withStore = handler => ctx => handler({ ...ctx, store, throttle })
   const withUploads = handler => ctx => handler({ ...ctx, uploads })
 
   return [
@@ -242,10 +249,10 @@ export function createGateway(config = loadConfig(), deps = {}) {
         if (res.writableEnded) return
         return sendJson(res, route.status || 200, result)
       } catch (error) {
-        const { status, message, data } = describeError(error)
+        const { status, message, data, headers } = describeError(error)
         if (status >= 500) console.error(`[gateway] ${req.method} ${url.pathname}:`, error)
         if (res.writableEnded) return
-        return sendError(res, status, message, data)
+        return sendError(res, status, message, data, headers)
       }
     }
 
