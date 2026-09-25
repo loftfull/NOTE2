@@ -28,7 +28,7 @@ HTTP-обвязка:
 | Работает без шлюза | 9 | 9 | 9 |
 | Работает через подключённую модель | 4 | 4 | 4 |
 | Требовало утраченного шлюза | 6 | **не работало** | **шлюз есть** |
-| Кода нет вообще | 2 | 2 | **1** (остался Android) |
+| Кода нет вообще | 2 | 2 | **0** |
 
 ---
 
@@ -103,11 +103,30 @@ JSON-ошибкой, а не страницей приложения (иначе
    `source-db.js`, `source-index.js`, `job-core.js` и `instagram-analysis.js`
    остаются реконструкцией по контрактам вызовов, а не оригиналами.
 
-## Что осталось
+## Android
 
-**Android.** Каталога `android/` нет, `scripts/prepare-android.mjs` нет.
-`capacitor.config.json` на месте, `appId` — `app.noteai.workspace`. Это
-единственный пункт, где кода нет вообще.
+Каталог `android/` создан, `scripts/prepare-android.mjs` написан заново.
+`applicationId` — `app.noteai.workspace`, не менялся.
+
+`npm run android:prepare` собирает клиент, создаёт проект, если его нет,
+синхронизирует ресурсы и делает две вещи, которых `cap add android` не делает:
+добавляет в launcher-activity intent-filter для приёма из share-меню (без них
+приложение просто не появляется в списке «Поделиться», и `src/share-target.js`
+ждёт события, которое не может произойти) и отказывается продолжать, если
+package id разошёлся с `capacitor.config.json`. Повторный запуск — no-op,
+проверено.
+
+**APK в этом окружении собрать нельзя, и причина конкретная.** Android Gradle
+Plugin отдаётся с `dl.google.com`, а прокси здесь отвечает 403:
+
+```
+Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/
+build/gradle/8.13.0/gradle-8.13.0.pom'.
+Received status code 403 from server: Forbidden
+```
+
+Плюс в окружении нет Android SDK и `sdkmanager`. На машине, где есть и то и
+другое, следующий шаг — `cd android && ./gradlew assembleDebug`.
 
 **Покрытие клиента.** 201 теста — это шлюз, восстановление архива и несколько
 клиентских модулей. Исходные 39 тестов приложения утрачены; заметок,
