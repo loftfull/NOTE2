@@ -1103,6 +1103,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 
 :root[data-style="yasny"] .card,
+:root[data-style="yasny"] .sourcesEmpty,
 :root[data-style="yasny"] .dailySurface,
 :root[data-style="yasny"] .reviewSurface,
 :root[data-style="yasny"] .noteRow,
@@ -1568,4 +1569,35 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 @media (prefers-reduced-motion: reduce) {
   .fab.fabHidden { transition: opacity var(--ms) var(--ease); transform: none; }
+}
+
+/* ── Пустая библиотека источников ────────────────────────────────────────
+   Было: пунктирный прямоугольник с просьбой добавить файл — и ни одной
+   кнопки, при том что кнопка импорта стояла безымянным значком в шапке.
+   Главное действие раздела было самым незаметным на экране.
+
+   Стало: объяснение, что такое источник и зачем он, и действие рядом. */
+.sourcesEmpty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; text-align: center;
+  padding: 32px 24px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+.sourcesEmpty h3 { margin: 0; }
+.sourcesEmpty p { margin: 0; max-width: 34ch; line-height: 1.55; }
+
+.sourcesEmptyIcon {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sourcesEmptyActions {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin-top: 4px;
 }

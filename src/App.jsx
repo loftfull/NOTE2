@@ -5,6 +5,7 @@ import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, 
 import { discoverGateway } from './gateway-discovery.js'
 import { clearSearchHistory, loadSearchHistory, rememberSearch } from './search-history.js'
 import { useScrollDirection } from './use-scroll-direction.js'
+import { correctedFilter, visibleSourceFilters } from './source-filters.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
 import { embedWithSettings, hasAiRoute, hasEmbedRoute, runTask } from './model-runtime.js'
 import { notesLabel, pluralRu, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
@@ -861,7 +862,9 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
   }
   const instagramSources=sources.filter(source=>source.kind==='instagram')
 
-  const sourceProviders=['all','instagram','youtube','web','document','media']
+  // Фильтры — по тому, что в библиотеке есть, а не по списку всего, что
+  // приложение теоретически умеет. Правила и порядок — в source-filters.js.
+  const sourceProviders=useMemo(()=>visibleSourceFilters(sources,sourceProvider),[sources])
   const visibleSources=sources.filter(source=>{
     const provider=sourceProvider(source)
     const q=sourceQuery.trim().toLowerCase()
@@ -887,7 +890,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
       if(settings.embedEndpoint&&storedChunks.some(c=>Array.isArray(c.vector))){try{queryVector=(await embedTexts(settings.embedEndpoint,[q]))[0]||null}catch{}}
       const matches=rankChunks({query:q,chunks,sources:allSources,queryVector,limit:8})
       const refs=buildEvidence(matches);setEvidence(refs)
-      if(!refs.length){setAnswer('No relevant evidence was found in the indexed sources.');return}
+      if(!refs.length){setAnswer('В проиндексированных источниках не нашлось подходящих фрагментов. Добавьте материалы или переформулируйте вопрос.');return}
       const prompt=groundedPrompt(q,refs)
       if(settings.aiEndpoint){
         const result=await runTask(settings,{action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
@@ -896,9 +899,16 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
     }catch(err){setAnswer(`Ошибка анализа: ${err.message}`)}finally{setBusy(false)}
   }
 
+  // Удалили последний источник выбранного типа — ряд фильтров исчез, а выбор
+  // остался, и список молча показывал пустоту.
+  useEffect(()=>{
+    const corrected=correctedFilter(sourceFilter,sourceProviders)
+    if(corrected!==sourceFilter)setSourceFilter(corrected)
+  },[sourceProviders,sourceFilter])
+
   return <div className="page">
-    <div className="sourcesV40Header"><div><h1 className="headline sourcesHeadline">Источники</h1><p className="subtle small">Все сохранённые материалы в одной библиотеке.</p></div><div className="row gap8"><button className="iconBtn" onClick={()=>setMode('import')} aria-label="Добавить источник"><Icon name="add" size={22}/></button><button className="iconBtn" onClick={()=>setMode('ask')} aria-label="Спросить источники"><Icon name="forum" size={21}/></button></div></div>
-    {mode==='sources'&&<><Input className="sourceLibrarySearch" value={sourceQuery} onChange={e=>setSourceQuery(e.target.value)} placeholder="Поиск по источникам…"/><div className="sourceProviderFilters">{sourceProviders.map(provider=><button key={provider} className={sourceFilter===provider?'active':''} onClick={()=>setSourceFilter(provider)}>{provider==='all'?'Все':sourceProviderLabel(provider)}</button>)}</div></>}
+    <div className="sourcesV40Header"><div><h1 className="headline sourcesHeadline">Источники</h1><p className="subtle small">Все сохранённые материалы в одной библиотеке.</p></div>{!!sources.length&&<div className="row gap8"><Button icon="add" onClick={()=>setMode('import')}>Добавить</Button><button className="iconBtn" onClick={()=>setMode('ask')} aria-label="Спросить источники"><Icon name="forum" size={21}/></button></div>}</div>
+    {mode==='sources'&&<>{!!sources.length&&<Input className="sourceLibrarySearch" value={sourceQuery} onChange={e=>setSourceQuery(e.target.value)} placeholder="Поиск по источникам…"/>}<div className="sourceProviderFilters filterRow">{sourceProviders.map(provider=><button key={provider} className={sourceFilter===provider?'active':''} onClick={()=>setSourceFilter(provider)}>{provider==='all'?'Все':sourceProviderLabel(provider)}</button>)}</div></>}
     {mode!=='sources'&&<button className="sourceBackButton" onClick={()=>setMode('sources')}><Icon name="arrow_back" size={18}/> К библиотеке</button>}
     {message&&<div className="notice" style={{marginBottom:14}}>{message}</div>}
 
@@ -912,7 +922,17 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
       <aside><Card><h3>Evidence</h3><div className="evidenceList" style={{marginTop:10}}>{evidence.map(item=><button className="evidenceCard" key={item.ref} onClick={()=>openEvidence(item)}><div className="row space"><strong>[{item.ref}]</strong><span className="tiny subtle">{Math.round(item.score*100)}%</span></div><div className="small" style={{fontWeight:650,marginTop:5}}>{item.sourceName}</div><div className="tiny subtle">{locatorLabel(item.locator,item.sectionLabel)}</div><div className="tiny subtle evidenceSnippet">{item.text}</div></button>)}{!evidence.length&&<div className="empty small">Здесь появятся найденные фрагменты источников.</div>}</div></Card></aside>
     </div>}
 
-    {mode==='sources'&&<div className="unifiedSourceList">{visibleSources.map(source=>{const view=unifiedSourceView(source);const provider=sourceProvider(source);return <article className="unifiedSourceRow" key={source.id}><button className="unifiedSourceOpen" onClick={()=>setSelectedSource({source})}><span className={`unifiedSourceIcon ${provider}`}><Icon name={sourceIcon(source.kind)} size={24}/></span><span className="unifiedSourceCopy"><strong>{view.title}</strong><span>{(view.description||source.error||'').replace(/\s+/g,' ').slice(0,110)||'Содержимое будет доступно после обработки источника.'}</span><small>{sourceProviderLabel(provider)}{view.author?` · ${view.author}`:''}{source.duration?` · ${secondsLabel(source.duration)}`:''}{source.pageCount?` · ${source.pageCount} стр.`:''} · {source.status==='ready'?'Готово':source.status==='saved'?'Сохранено':'Нужна обработка'}</small></span></button><button className="unifiedSourceMore" onClick={()=>remove(source.id)} aria-label="Удалить"><Icon name="more_horiz" size={21}/></button></article>})}{!visibleSources.length&&<div className="empty">{sources.length?'По выбранному фильтру ничего нет.':'Добавьте файл или поделитесь ссылкой из Instagram, YouTube или браузера.'}</div>}</div>}
+    {mode==='sources'&&<div className="unifiedSourceList">{visibleSources.map(source=>{const view=unifiedSourceView(source);const provider=sourceProvider(source);return <article className="unifiedSourceRow" key={source.id}><button className="unifiedSourceOpen" onClick={()=>setSelectedSource({source})}><span className={`unifiedSourceIcon ${provider}`}><Icon name={sourceIcon(source.kind)} size={24}/></span><span className="unifiedSourceCopy"><strong>{view.title}</strong><span>{(view.description||source.error||'').replace(/\s+/g,' ').slice(0,110)||'Содержимое будет доступно после обработки источника.'}</span><small>{sourceProviderLabel(provider)}{view.author?` · ${view.author}`:''}{source.duration?` · ${secondsLabel(source.duration)}`:''}{source.pageCount?` · ${source.pageCount} стр.`:''} · {source.status==='ready'?'Готово':source.status==='saved'?'Сохранено':'Нужна обработка'}</small></span></button><button className="unifiedSourceMore" onClick={()=>remove(source.id)} aria-label="Удалить"><Icon name="more_horiz" size={21}/></button></article>})}{!visibleSources.length&&(sources.length
+      ? <div className="empty"><Icon name="filter_alt_off" size={40}/><p style={{marginTop:8}}>По выбранному фильтру ничего нет.</p><button className="textAction" onClick={()=>setSourceFilter('all')}>Показать все <Icon name="arrow_forward" size={18}/></button></div>
+      : <div className="sourcesEmpty">
+          <div className="sourcesEmptyIcon"><Icon name="library_books" size={30}/></div>
+          <h3>Библиотека пуста</h3>
+          <p className="small subtle">Источник — это файл, страница или видео, из которых приложение достаёт текст. После добавления по ним работает поиск, и на них можно ссылаться из заметок.</p>
+          <div className="sourcesEmptyActions">
+            <Button icon="upload_file" onClick={()=>setMode('import')}>Добавить файл</Button>
+            <button className="textAction" onClick={()=>setMode('import')}>Или вставить ссылку <Icon name="arrow_forward" size={18}/></button>
+          </div>
+        </div>)}</div>}
     <SourcePreview selection={selectedSource} onClose={()=>setSelectedSource(null)} settings={settings} onSourceUpdated={updateInstagramMedia} onBatchSourceUpdated={updateInstagramMediaBatch} onToggleFavorite={toggleSourceFavorite} onCreateNote={createSourceNote} onCreateMediaNote={createInstagramMediaNote} onInsightUpdated={updateInstagramInsight} onSummaryUpdated={updateSourceSummary} onToggleCollection={toggleInstagramCollection} onStructuredUpdated={updateInstagramStructured} onOfflinePinUpdated={updateInstagramOfflinePin} instagramSources={instagramSources} notes={workspace?.notes||[]}/>
   </div>
 }
