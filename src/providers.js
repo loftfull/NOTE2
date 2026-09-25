@@ -1,10 +1,13 @@
 // OpenAI-compatible provider presets and client.
 //
-// Why this exists: the v4.10 gateway (server.mjs) was lost with the upload, and
-// every AI feature was routed through it. Almost every model host now speaks the
-// OpenAI chat-completions shape, so the app can talk to them directly and stop
-// depending on a server that no longer exists. The project's own gateway stays
-// in the list as one provider among several, not as the only way in.
+// Why this exists: almost every model host now speaks the OpenAI
+// chat-completions shape, so the app can reach a model with no server of its
+// own at all. That is the right default for a personal notebook — nothing to
+// deploy, and the key stays on the device.
+//
+// The project's gateway is one provider in this list rather than the only way
+// in. It earns its place where the key must NOT be on the device: an Android
+// build ships to a phone, and a key compiled into an APK is extractable.
 //
 // Base URLs below are defaults, not gospel — each one is editable per model,
 // because hosts move paths and the user may be running something local.

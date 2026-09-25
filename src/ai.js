@@ -128,10 +128,11 @@ async function describeFailure(response) {
  * could not tell that nothing had been analysed. Callers must decide what to
  * show; they must never present 'local' or 'error' output as a model result.
  */
-// The registry path: talk to an OpenAI-compatible provider directly. This is
-// what lets the AI features work at all now that the project's own gateway
-// (server.mjs) is lost — the model is reached from the client, and the same
-// fail-closed rule applies: a failure is reported, never replaced by local text.
+// The registry path: talk to an OpenAI-compatible provider directly, without
+// a server. This is the route to use when no gateway is running; when one is,
+// the gateway path below keeps the provider key off the device, which is what
+// the Android build needs. Both obey the same fail-closed rule: a failure is
+// reported, never replaced by local text.
 async function runRegistryTask({ modelRecord, apiKey, action, input, system, history, signal }) {
   const messages = [
     ...(Array.isArray(history) ? history.filter(m => m?.role && m?.content) : []),

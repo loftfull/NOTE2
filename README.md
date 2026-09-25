@@ -2,6 +2,25 @@
 
 NOTE2 is the dedicated repository for the NoteAI project developed in this chat.
 
+## Запуск
+
+```bash
+npm install
+npm run build
+npm start          # http://localhost:8787
+```
+
+`npm start` поднимает шлюз `server.mjs`, который отдаёт собранный клиент и
+предоставляет то, что браузер не может сделать сам: загрузку по ссылке,
+субтитры YouTube, аккаунт и синхронизацию, докачиваемую загрузку крупного
+медиа и обращение к модели без ключа на устройстве.
+
+Приложение работает и без шлюза — заметки, документы, поиск и AI через реестр
+моделей живут в браузере. `GET /api/health` показывает, что включено.
+
+Настройка и полный список маршрутов: [`docs/GATEWAY.md`](docs/GATEWAY.md).
+Что из заявленного работает: [`docs/FUNCTIONAL_STATUS_2026-09-15.md`](docs/FUNCTIONAL_STATUS_2026-09-15.md).
+
 ## Verified source of truth
 
 The project source is **NoteAI**, not `BlockNoteAI` / Shadow Knowledge AI.
