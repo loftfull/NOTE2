@@ -141,33 +141,36 @@
        --sq       every square: icon button, icon tile, avatar
        --r-*      one radius ladder; nothing invents its own value
   */
-  --ground: #eef1f8;
-  --tint-1: rgba(118, 104, 244, .28);
-  --tint-2: rgba(48, 146, 244, .24);
-  --tint-3: rgba(38, 202, 172, .18);
+  /* Тёплая бумага, а не холодный экран. Стекло поверх голубовато-серого
+     читается как пластик; поверх тёплого кремового — как стекло на бумаге.
+     Контраст пар проверен: текст 15.5:1, вторичный 6.8:1, акцент 4.7:1. */
+  --ground: #f7f3ec;
+  --tint-1: rgba(214, 138, 96, .22);
+  --tint-2: rgba(198, 164, 106, .20);
+  --tint-3: rgba(150, 160, 138, .16);
 
-  --surface: rgba(255, 255, 255, .66);
-  --surface-2: rgba(255, 255, 255, .48);
-  --surface-3: rgba(255, 255, 255, .82);
+  --surface: rgba(255, 253, 250, .68);
+  --surface-2: rgba(255, 253, 250, .50);
+  --surface-3: rgba(255, 253, 250, .86);
   --glass-blur: 24px;
-  --glass-edge: rgba(255, 255, 255, .78);
-  --glass-top: rgba(255, 255, 255, .95);
+  --glass-edge: rgba(255, 255, 255, .80);
+  --glass-top: rgba(255, 255, 255, .96);
 
-  --ink: #101828;
-  --ink-2: #44536a;
-  --ink-3: #5a6880;
-  --line: rgba(16, 24, 40, .1);
-  --line-strong: rgba(16, 24, 40, .18);
+  --ink: #1f1b16;
+  --ink-2: #5c5349;
+  --ink-3: #6f6558;
+  --line: rgba(31, 27, 22, .10);
+  --line-strong: rgba(31, 27, 22, .18);
 
-  --accent: #1d4ed8;
+  --accent: #c2410c;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(29, 78, 216, .12);
-  --ok: #0d7a52;
-  --ok-soft: rgba(13, 122, 82, .12);
-  --warn: #95590a;
-  --warn-soft: rgba(149, 89, 10, .12);
-  --danger: #c32c2c;
-  --danger-soft: rgba(195, 44, 44, .12);
+  --accent-soft: rgba(194, 65, 12, .12);
+  --ok: #4a6b3f;
+  --ok-soft: rgba(74, 107, 63, .14);
+  --warn: #8a5a1a;
+  --warn-soft: rgba(138, 90, 26, .14);
+  --danger: #a33535;
+  --danger-soft: rgba(163, 53, 53, .12);
 
   --r-sm: 12px;
   --r-md: 18px;
@@ -229,6 +232,27 @@
 /* ---------- base ---------- */
 
 * { box-sizing: border-box; }
+
+/* Браузерный вид кнопки снимается один раз для всех.
+   Без этого правило вроде «.reviewItem { border-bottom: 1px solid ... }»
+   оставляет браузерную рамку на трёх остальных сторонах и серый фон: строка
+   задачи показывалась тёмной коробкой посреди стеклянных карточек. Тем же
+   были задеты .jobMain, .sourceBackButton, .unifiedSourceMore и
+   .citationChip — то есть это был не единичный промах, а отсутствие сброса.
+   Компоненты, которые задают свой фон и рамку, перебивают это по
+   специфичности. */
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+button:disabled { cursor: default; }
+
 html, body, #root { height: 100%; }
 
 body {
@@ -273,8 +297,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .main {
   flex: 1; width: 100%; max-width: 780px; margin: 0 auto;
   padding: var(--pad);
+  /* Шапки на телефоне нет, поэтому safe-area сверху отрабатывает контент. */
+  padding-top: calc(var(--pad) + var(--safe-t));
   padding-bottom: calc(var(--nav-h) + var(--safe-b) + 84px);
 }
+@media (min-width: 900px) { .main { padding-top: var(--pad); } }
 
 .page { display: flex; flex-direction: column; gap: calc(var(--gap) * 1.6); animation: fadeIn var(--ms) var(--ease) both; }
 /* An empty container still consumes a flex gap, which showed up as a stray
@@ -290,14 +317,26 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .split { display: grid; grid-template-columns: 1fr; gap: var(--gap); }
 
+/* На телефоне липкая шапка — чистое дублирование, и её здесь нет.
+   Она несла ровно три вещи: заголовок раздела, который страница уже написала
+   своим h1; гамбургер, открывающий ящик с теми же пятью пунктами, что и
+   нижняя панель; и индикатор сети с классом desktopOnly. 93 px на каждом
+   экране за повтор того, что уже сказано дважды.
+
+   Выше 900 px нижняя панель скрыта и шапка становится единственной
+   навигацией — там она возвращается. Возвращается она и на телефоне, когда
+   есть что показать помимо повтора: предложение установить приложение. */
 .header {
+  display: none;
   position: sticky; top: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  align-items: center; justify-content: space-between; gap: 12px;
   height: calc(var(--header-h) + var(--safe-t));
   padding: var(--safe-t) var(--pad) 0;
   background: var(--ground);
   border-bottom: 1px solid var(--line);
 }
+.header.headerHasAction { display: flex; }
+@media (min-width: 900px) { .header { display: flex; } }
 .headerTitle { font-size: var(--t-section); font-weight: 650; letter-spacing: -.018em; }
 .headerActions { display: flex; align-items: center; gap: 8px; }
 .sidebar, .desktopOnly { display: none; }
@@ -1064,6 +1103,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 
 :root[data-style="yasny"] .card,
+:root[data-style="yasny"] .dailySurface,
+:root[data-style="yasny"] .reviewSurface,
 :root[data-style="yasny"] .noteRow,
 :root[data-style="yasny"] .unifiedSourceRow,
 :root[data-style="yasny"] .searchSourceResult,
@@ -1262,20 +1303,26 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--tile, var(--accent));
   box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--tile, var(--accent)) 50%, transparent);
 }
-:root[data-style="yasny"] .v0 { --tile: #5b5bd6 }
-:root[data-style="yasny"] .v1 { --tile: #0b8a5f }
-:root[data-style="yasny"] .v2 { --tile: #cc4a05 }
-:root[data-style="yasny"] .v3 { --tile: #0a7ea4 }
-:root[data-style="yasny"] .v4 { --tile: #b5179e }
+/* Пять плиток — одно семейство, а не пять случайных ярких цветов.
+   Светлота выровнена численно: относительная яркость каждой сведена к
+   L = 0.145, разброс ×1.014 (было ×1.48). Белая иконка даёт контраст не
+   ниже 5.36:1 на любой из них — выше порога AA для текста, не только для
+   графики. Насыщенность снижена: приглушённые тона на тёплой бумаге
+   читаются как подбор, кричащие — как набор. */
+:root[data-style="yasny"] .v0 { --tile: #a35538 }   /* глина  */
+:root[data-style="yasny"] .v1 { --tile: #5e7144 }   /* мох    */
+:root[data-style="yasny"] .v2 { --tile: #417371 }   /* бирюза */
+:root[data-style="yasny"] .v3 { --tile: #5b66a4 }   /* индиго */
+:root[data-style="yasny"] .v4 { --tile: #8f5a75 }   /* слива  */
 :root[data-style="yasny"] .quickActionsFlat button .appIcon,
 :root[data-style="yasny"] .captureChoices button .appIcon {
   width: var(--sq); height: var(--sq); font-size: 21px;
   border-radius: var(--r-sm); color: #fff; background: var(--accent);
 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #5b5bd6 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #0b8a5f }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #cc4a05 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #0a7ea4 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #a35538 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #5e7144 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #417371 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #5b66a4 }
 
 @media (min-width: 900px) {
   :root[data-style="yasny"] .main { padding-bottom: calc(var(--pad) + 40px) }
@@ -1372,3 +1419,153 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
    ошибка, что раньше слепила название источника с его фрагментом. */
 .searchScopeRow > div:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .searchScopeRow p { margin: 0; }
+
+/* ── Строка заметки ──────────────────────────────────────────────────────
+   Заголовок получает всё оставшееся место. Дата ушла в строку меты к тегам:
+   колонкой справа она забирала 100 px из 354 и обрезала заголовок на третьем
+   слове. */
+.noteRowBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+
+.noteTitle { display: flex; align-items: center; gap: 6px; }
+/* Многоточие живёт на тексте, а не на flex-контейнере: у контейнера с
+   иконками закрепления overflow:hidden обрезал бы сами иконки. */
+.noteTitleText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.noteRowSnippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.noteRowMeta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 3px; min-width: 0;
+  /* Один ряд с горизонтальной прокруткой вместо переноса: перенос менял
+     высоту карточек в списке и ломал ритм. */
+  overflow-x: auto; scrollbar-width: none;
+}
+.noteRowMeta::-webkit-scrollbar { display: none; }
+.noteRowMeta > * { flex: none; }
+
+.noteRow > .rowActions { flex: none; align-self: flex-start; margin-top: 2px; }
+
+/* ── Ряд фильтров ────────────────────────────────────────────────────────
+   Подчинён переключателю разделов над ним. Раньше оба ряда были
+   .notebookViews и выглядели одинаково — два одинаковых ряда таблеток подряд
+   читаются как один уровень, хотя это разные: сверху «что за раздел», снизу
+   «что показать внутри него».
+
+   Отличается ростом (--chip-h вместо --ctl-h), весом текста и тем, что
+   активный элемент не заливается акцентом, а лишь подсвечивается. */
+.filterRow {
+  display: flex; gap: 8px;
+  overflow-x: auto; scrollbar-width: none;
+  margin-top: -6px;
+}
+.filterRow::-webkit-scrollbar { display: none; }
+
+.filterRow button {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--chip-h); padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit; font-size: var(--t-secondary); font-weight: 560;
+  cursor: pointer;
+  transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease), border-color var(--ms) var(--ease);
+}
+.filterRow button:hover { background: var(--surface-2); }
+.filterRow button.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+.filterRow button.active .appIcon { color: var(--accent); }
+.filterRow button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Ритм страницы и ряды тегов ──────────────────────────────────────────
+   Промежуток между блоками был --gap × 1.6 (22 px при --gap 14), а поверх
+   него отдельные блоки добавляли собственные margin. Замеренные разрывы шли
+   36 / 34 / 22 / 34 / 22 px — экран дышал за счёт плотности, и на 844 px
+   помещалось вдвое меньше, чем могло.
+
+   Один множитель на всё, и никаких margin сверху у детей страницы. */
+.page { gap: calc(var(--gap) * 1.15); }
+.page > * { margin-top: 0; }
+
+/* Теги — один прокручиваемый ряд, а не перенос. Пять тегов занимали две
+   строки и 150 px по вертикали; при переносе высота ещё и скачет от числа
+   тегов, из-за чего список под ними каждый раз стоит на новом месте. */
+.chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Прокрутка доходит до края экрана, а не обрывается по отступу страницы. */
+  margin-inline: calc(var(--pad) * -1);
+  padding-inline: var(--pad);
+  scroll-padding-inline: var(--pad);
+}
+.chips::-webkit-scrollbar { display: none; }
+.chips > * { flex: none; }
+
+/* ── Поверхности на «Сегодня» ────────────────────────────────────────────
+   .dailySurface и .reviewSurface назывались поверхностями, но ими не были:
+   голый flex-столбец без фона, рамки и радиуса. Поэтому текст дневной
+   заметки висел прямо на фоне, будто выпал из карточки, а блок задач
+   показывался серой плашкой с чужой рамкой. Теперь у них та же стеклянная
+   обработка, что у остальных карточек. */
+.dailySurface,
+.reviewSurface {
+  padding: 14px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+.dailySurface { cursor: pointer; transition: border-color var(--ms) var(--ease); }
+.dailySurface:hover { border-color: var(--accent); }
+.dailySurface:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Внутренние разделители строк задач уже дают ритм — внешний отступ сверху
+   у первой строки был бы двойным. */
+.reviewSurface .reviewItem:first-child { padding-top: 0; }
+.reviewSurface .reviewItem:last-child { padding-bottom: 0; }
+
+/* Лента «Продолжить работу» прокручивается, но обрывалась по краю экрана без
+   единого намёка на это — вторая карточка выглядела обрезанной. Показываем
+   край следующей и растушёвываем правую границу. */
+.continueRail {
+  margin-inline: calc(var(--pad) * -1);
+  padding-inline: var(--pad);
+  scroll-padding-inline: var(--pad);
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+/* Без прокрутки растушёвывать нечего — иначе у одной карточки край бледнеет
+   без причины. */
+.continueRail:not(:has(> :nth-child(2))) {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Кружок-отметка у строки задачи: раньше это был пустой span без правил. */
+.reviewCheck {
+  flex: none;
+  width: 20px; height: 20px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-pill);
+}
+.reviewItem { width: 100%; }
+.reviewItem > span:nth-child(2) { flex: 1; min-width: 0; }
+
+/* Кнопка «+» уходит, пока листают вниз, и возвращается при движении вверх
+   или остановке. Любая фиксированная кнопка в правом нижнем углу рано или
+   поздно накроет действие в заголовке раздела — они прижаты к одному краю. */
+.fab {
+  transition: transform var(--ms) var(--ease), box-shadow var(--ms) var(--ease), opacity var(--ms) var(--ease);
+}
+.fab.fabHidden {
+  opacity: 0;
+  transform: translateY(96px) scale(.9);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab.fabHidden { transition: opacity var(--ms) var(--ease); transform: none; }
+}

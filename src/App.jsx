@@ -4,6 +4,7 @@ import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
 import { discoverGateway } from './gateway-discovery.js'
 import { clearSearchHistory, loadSearchHistory, rememberSearch } from './search-history.js'
+import { useScrollDirection } from './use-scroll-direction.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
 import { embedWithSettings, hasAiRoute, hasEmbedRoute, runTask } from './model-runtime.js'
 import { notesLabel, pluralRu, resultsLabel, sourcesLabel, tasksLabel } from './plural.js'
@@ -367,6 +368,7 @@ export default function App(){
   const [installEvent,setInstallEvent]=useState(null)
   const [toast,setToast]=useState('')
   const [captureOpen,setCaptureOpen]=useState(false)
+  const fabHidden=useScrollDirection()
   const [capturePayload,setCapturePayload]=useState(null)
 
   useEffect(()=>{let live=true;getCredential('noteai-account-session-v1').then(token=>{if(live&&token)setApiSessionAuth(token,settings.accountEndpoint||'/api/account')}).catch(()=>{});return()=>{live=false}},[])
@@ -436,7 +438,7 @@ export default function App(){
       {page!=='editor' && <Header title={title} onMenu={()=>setDrawer(true)} online={online} installEvent={installEvent} install={install}/>} 
       <PageRouter page={page} editingId={editingId} {...ctx}/>
     </main>
-    {page!=='editor' && <button className="fab knowledgeCapture" onClick={()=>setCaptureOpen(true)} aria-label="Добавить"><Icon name="add" size={29}/></button>}
+    {page!=='editor' && <button className={`fab knowledgeCapture ${fabHidden?'fabHidden':''}`} onClick={()=>setCaptureOpen(true)} aria-label="Добавить"><Icon name="add" size={29}/></button>}
     <BottomNav page={page} navigate={navigate}/>
     <CaptureSheet open={captureOpen} onClose={()=>setCaptureOpen(false)} newNote={newNote} navigate={navigate} onFiles={captureFiles} onLink={captureLink}/>
     {toast && <div className="toast">{toast}</div>}
@@ -449,7 +451,7 @@ function SidebarContent({page,navigate,settings,online}){ return <>
   <nav className="nav">{NAV.map(([id,label,icon])=><button key={id} className={`navBtn ${page===id?'active':''}`} onClick={()=>navigate(id)}><Icon name={icon}/><span className="navLabel">{label}</span></button>)}</nav>
   <div className="sidebarFooter"><div className="profile"><div className="avatar">{(settings.profile?.name||'U')[0]}</div><div className="profileMeta"><div style={{fontSize:13,fontWeight:650}}>{settings.profile?.name||'Локальный профиль'}</div><div className="row gap8 tiny subtle"><span className={`statusDot ${online?'':'offline'}`}/>{online?'В сети':'Офлайн'}</div></div></div></div>
 </>}
-function Header({title,onMenu,online,installEvent,install}){return <header className="header glass"><div className="row gap8"><button className="iconBtn" onClick={onMenu} aria-label="Меню"><Icon name="menu"/></button><div className="headerTitle">{title}</div></div><div className="headerActions"><div className="row gap8 small subtle desktopOnly"><span className={`statusDot ${online?'':'offline'}`}/>{online?'Подключено':'Офлайн'}</div>{installEvent&&<Button tone="tonal" icon="install_mobile" onClick={install}>Установить</Button>}</div></header>}
+function Header({title,onMenu,online,installEvent,install}){return <header className={`header glass ${installEvent?'headerHasAction':''}`}><div className="row gap8"><button className="iconBtn" onClick={onMenu} aria-label="Меню"><Icon name="menu"/></button><div className="headerTitle">{title}</div></div><div className="headerActions"><div className="row gap8 small subtle desktopOnly"><span className={`statusDot ${online?'':'offline'}`}/>{online?'Подключено':'Офлайн'}</div>{installEvent&&<Button tone="tonal" icon="install_mobile" onClick={install}>Установить</Button>}</div></header>}
 function BottomNav({page,navigate}){return <nav className="bottomNav glass" aria-label="Основная навигация">{NAV.filter(x=>MOBILE.includes(x[0])).map(([id,label,icon])=><button key={id} onClick={()=>navigate(id)} className={page===id?'active':''} aria-label={label}><Icon name={icon} size={25}/><span>{label}</span></button>)}</nav>}
 function CaptureSheet({open,onClose,newNote,navigate,onFiles,onLink}){
   const imageRef=useRef(null),videoRef=useRef(null),audioRef=useRef(null),fileRef=useRef(null)
@@ -550,7 +552,24 @@ function Dashboard({workspace,navigate,openEditor,newNote,openCapture}){
     </section>
   </div>
 }
-function NoteRow({note,onOpen,onDelete}){return <div className="noteRow" onClick={onOpen}><KnowledgeObject kind="note" seed={note.id} size="sm"/><div style={{minWidth:0}}><div className="noteTitle">{note.pinned&&<Icon name="push_pin" size={14}/>} {note.favorite&&<Icon name="star" size={14}/>} {note.title||'Без названия'}</div><div className="small subtle" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:3}}>{stripMarkdown(note.content).slice(0,110)||'Пустая заметка'}</div><div className="tags" style={{marginTop:6}}>{(note.tags||[]).slice(0,4).map(t=><span className="tag" key={t}>#{t}</span>)}</div></div><div className="row gap8 rowActions"><span className="tiny subtle">{formatDate(note.updatedAt)}</span>{onDelete&&<button className="iconBtn" onClick={e=>{e.stopPropagation();onDelete()}} aria-label="Удалить"><Icon name="delete" size={18}/></button>}</div></div>}
+// Дата стоит в строке меты, а не отдельной колонкой справа.
+//
+// Раньше дата и корзина были заперты в колонке с flex:none и забирали 100 px
+// из 354: заголовку доставалось 165 px, и «Рецепт хлеба на закваске»
+// обрывался на третьем слове. Заголовок заметки — единственное, по чему её
+// узнают в списке; дата такого права не имеет.
+function NoteRow({note,onOpen,onDelete}){return <div className="noteRow" onClick={onOpen}>
+  <KnowledgeObject kind="note" seed={note.id} size="sm"/>
+  <div className="noteRowBody">
+    <div className="noteTitle">{note.pinned&&<Icon name="push_pin" size={14}/>}{note.favorite&&<Icon name="star" size={14}/>}<span className="noteTitleText">{note.title||'Без названия'}</span></div>
+    <div className="noteRowSnippet small subtle">{stripMarkdown(note.content).slice(0,110)||'Пустая заметка'}</div>
+    <div className="noteRowMeta">
+      <span className="tiny subtle">{formatDate(note.updatedAt)}</span>
+      {(note.tags||[]).slice(0,3).map(t=><span className="tag" key={t}>#{t}</span>)}
+    </div>
+  </div>
+  {onDelete&&<button className="iconBtn rowActions" onClick={e=>{e.stopPropagation();onDelete()}} aria-label="Удалить"><Icon name="delete" size={18}/></button>}
+</div>}
 
 // Заметки, задачи и карта тем — три вида одного рабочего пространства.
 //
@@ -581,7 +600,7 @@ function Library({workspace,setWorkspace,openEditor,newNote,initialSection='note
     {section==='tasks'&&<TasksView workspace={workspace} setWorkspace={setWorkspace}/>}
     {section==='graph'&&<GraphView workspace={workspace} openEditor={openEditor}/>}
     {section==='notes'&&<>
-    <div className="notebookViews"><button className={view==='all'?'active':''} onClick={()=>setView('all')}><Icon name="notes" size={18}/>Все</button><button className={view==='pinned'?'active':''} onClick={()=>setView('pinned')}><Icon name="push_pin" size={18}/>Закреплённые</button><button className={view==='favorites'?'active':''} onClick={()=>setView('favorites')}><Icon name="star" size={18}/>Избранное</button></div>
+    <div className="filterRow"><button className={view==='all'?'active':''} onClick={()=>setView('all')}><Icon name="notes" size={16}/>Все</button><button className={view==='pinned'?'active':''} onClick={()=>setView('pinned')}><Icon name="push_pin" size={16}/>Закреплённые</button><button className={view==='favorites'?'active':''} onClick={()=>setView('favorites')}><Icon name="star" size={16}/>Избранное</button></div>
     <div className="searchRow"><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по названию и тексту…"/><select className="select" style={{maxWidth:160}} value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="alpha">А–Я</option></select></div>
     <div className="chips" style={{marginTop:12}}>{tags.map(t=><button className={`chip ${selected.includes(t)?'active':''}`} key={t} onClick={()=>setSelected(s=>s.includes(t)?s.filter(x=>x!==t):[...s,t])}>#{t}</button>)}</div>
     <div className="notesList">{notes.map(n=><NoteRow key={n.id} note={n} onOpen={()=>openEditor(n.id)} onDelete={()=>del(n.id)}/>)}{!notes.length&&<div className="empty"><Icon name="search_off" size={48}/><p style={{marginTop:8}}>Подходящих заметок нет.</p></div>}</div>
