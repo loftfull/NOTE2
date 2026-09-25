@@ -27,6 +27,12 @@ import { aiConfigured, embedConfigured, loadConfig, transcribeConfigured, vision
 import { HttpError, describeError, matchPath, readJson, sendError, sendJson } from './server/http.mjs'
 import { handleSourceUrl } from './server/routes/source-url.mjs'
 import { handleYoutube } from './server/routes/youtube.mjs'
+import {
+  handleListSessions, handleLogin, handleLogout, handleMe, handlePullWorkspace,
+  handlePushWorkspace, handleRegister, handleRevokeSession
+} from './server/routes/account.mjs'
+import { handleLegacyPull, handleLegacyPush } from './server/routes/sync.mjs'
+import { createStore } from './server/store.mjs'
 
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -99,6 +105,9 @@ async function serveStatic(req, res, config) {
  * handler that returns a JSON-serialisable value or throws an HttpError.
  */
 function buildRoutes(config, deps = {}) {
+  const store = deps.store || createStore(config.dataDir)
+  const withStore = handler => ctx => handler({ ...ctx, store })
+
   return [
     {
       method: 'GET',
@@ -116,7 +125,8 @@ function buildRoutes(config, deps = {}) {
           embed: embedConfigured(config),
           vision: visionConfigured(config),
           transcribe: transcribeConfigured(config),
-          instagram: Boolean(config.instagram.command)
+          instagram: Boolean(config.instagram.command),
+          legacySync: Boolean(config.legacySyncToken)
         }
       })
     },
@@ -129,6 +139,33 @@ function buildRoutes(config, deps = {}) {
       method: 'POST',
       path: '/api/youtube',
       handler: async ctx => handleYoutube(ctx)
+    },
+
+    // Accounts and device sessions.
+    { method: 'POST', path: '/api/account/register', handler: withStore(handleRegister) },
+    { method: 'POST', path: '/api/account/login', handler: withStore(handleLogin) },
+    { method: 'GET', path: '/api/account/me', handler: withStore(handleMe) },
+    { method: 'POST', path: '/api/account/logout', handler: withStore(handleLogout) },
+    { method: 'GET', path: '/api/account/sessions', handler: withStore(handleListSessions) },
+    { method: 'DELETE', path: '/api/account/sessions/:sessionId', handler: withStore(handleRevokeSession) },
+
+    // The synced workspace. The snapshot cap is generous because it carries
+    // every note and every indexed chunk in one body.
+    { method: 'GET', path: '/api/account/sync/:workspaceId', handler: withStore(handlePullWorkspace) },
+    {
+      method: 'PUT',
+      path: '/api/account/sync/:workspaceId',
+      maxBody: config.limits.snapshotBytes,
+      handler: withStore(handlePushWorkspace)
+    },
+
+    // The pre-account sync mode the client still offers.
+    { method: 'GET', path: '/api/sync/:workspaceId', handler: withStore(handleLegacyPull) },
+    {
+      method: 'PUT',
+      path: '/api/sync/:workspaceId',
+      maxBody: config.limits.snapshotBytes,
+      handler: withStore(handleLegacyPush)
     }
   ]
 }
@@ -167,10 +204,10 @@ export function createGateway(config = loadConfig(), deps = {}) {
         if (res.writableEnded) return
         return sendJson(res, route.status || 200, result)
       } catch (error) {
-        const { status, message } = describeError(error)
+        const { status, message, data } = describeError(error)
         if (status >= 500) console.error(`[gateway] ${req.method} ${url.pathname}:`, error)
         if (res.writableEnded) return
-        return sendError(res, status, message)
+        return sendError(res, status, message, data)
       }
     }
 

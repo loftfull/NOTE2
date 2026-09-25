@@ -46,6 +46,8 @@ export function loadConfig(env = process.env) {
     // Registration is closed unless a token is set, so a gateway exposed to
     // the internet does not accumulate strangers' accounts.
     accountRegistrationToken: read('NOTE2_REGISTRATION_TOKEN'),
+    // The pre-account sync mode: one shared token, off unless it is set.
+    legacySyncToken: read('NOTE2_SYNC_TOKEN'),
     allowOpenRegistration: read('NOTE2_ALLOW_OPEN_REGISTRATION') === '1',
 
     limits: {
