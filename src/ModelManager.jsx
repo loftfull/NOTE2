@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { Icon } from './icons.jsx'
+import { ModelPicker } from './ModelPicker.jsx'
 import { Button, Card, Chip, Field, Input, Select, Sheet, Spinner, Status } from './ui.jsx'
 import { PROVIDERS, listProviderModels, providerInfo } from './providers.js'
 import {
@@ -54,8 +55,12 @@ function ModelForm({ draft, setDraft, errors, storedKey }) {
 
       {info.hint ? <p className="modelHint"><Icon name="info" size={15} /> {info.hint}</p> : null}
 
-      <Field label="Идентификатор модели" error={errors.model} hint="Точно как у провайдера, например llama-3.3-70b-versatile">
-        <Input value={draft.model} onChange={e => setDraft({ ...draft, model: e.target.value })} placeholder="llama3" />
+      {/* Выбор из каталога провайдера стоит перед полем ввода: угадывать
+          идентификатор руками нужно только если модели нет в списке. */}
+      <ModelPicker draft={draft} setDraft={setDraft} storedKey={storedKey} />
+
+      <Field label="Идентификатор модели" error={errors.model} hint="Заполняется выбором из списка. Можно вписать руками, если нужной модели там нет.">
+        <Input value={draft.model} onChange={e => setDraft({ ...draft, model: e.target.value })} placeholder="выберите из списка выше" />
       </Field>
 
       <Field label="Название" hint="Как показывать в списке. Можно оставить пустым.">

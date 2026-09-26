@@ -12,6 +12,8 @@
 // Base URLs below are defaults, not gospel — each one is editable per model,
 // because hosts move paths and the user may be running something local.
 
+import { parseCatalog } from './model-catalog.js'
+
 export const PROVIDERS = {
   ollama: {
     label: 'Ollama — локально',
@@ -116,6 +118,30 @@ function authHeaders(model) {
   const headers = { 'Content-Type': 'application/json' }
   if (model?.apiKey) headers.Authorization = `Bearer ${model.apiKey}`
   return headers
+}
+
+/**
+ * Каталог провайдера целиком, с метаданными.
+ *
+ * listProviderModels() ниже оставляет только идентификаторы — этого хватает
+ * для проверки связи, но не для выбора модели: из голого списка строк нельзя
+ * понять, какая бесплатная и у какой длиннее контекст. Здесь возвращается
+ * разобранный каталог; решение о цене принимает model-catalog.js по тому,
+ * что реально пришло в ответе.
+ */
+export async function fetchProviderCatalog(model, { signal, timeoutMs = 20_000, fetchImpl = fetch } = {}) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
+  if (signal && controller) signal.addEventListener('abort', () => controller.abort(), { once: true })
+  try {
+    const response = await fetchImpl(joinUrl(model.baseUrl, '/models'), {
+      headers: authHeaders(model),
+      signal: controller?.signal
+    })
+    return parseCatalog(await readJson(response))
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 /** Lists what the endpoint actually offers. Used by the "проверить" action. */
