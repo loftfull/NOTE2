@@ -1157,8 +1157,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--surface);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--shadow-2);
+  /* Только стандартное свойство. Написанный рядом -webkit- вариант заставлял
+     lightningcss схлопнуть пару и оставить в сборке ТОЛЬКО префиксную форму,
+     которую Chromium не понимает — размытие не применялось нигде, и весь
+     стеклянный стиль оставался просто полупрозрачным. Префикс для Safari < 18
+     добавляет сборщик по build.cssTarget. */
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
 /* Containing block for the highlight, on the non-fixed surfaces only. */
@@ -1217,7 +1221,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   border: 1px solid var(--glass-edge);
   box-shadow: none;
   backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 :root[data-style="yasny"] .input:focus,
 :root[data-style="yasny"] .textarea:focus,
@@ -1246,15 +1249,34 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .iconBtn:hover { background: var(--surface-2); }
 
 /* The tab bar floats as one glass pill. */
-/* Surfaces that sit over moving content are near-opaque. Frosted glass reads
-   as glass because of the tint and the edge, not because you can read the
-   article through it — and Android WebView support for backdrop-filter is not
-   something to stake legibility on. */
+/* Поверхности поверх движущегося содержимого почти непрозрачны. Матовое
+   стекло читается как стекло из-за оттенка и края, а не из-за того, что
+   сквозь него виден текст, — и на поддержку backdrop-filter в Android WebView
+   ставить разборчивость нельзя.
+
+   Значение было .9 без размытия, и этого не хватало: 10% просвета достаточно,
+   чтобы сквозь шторку читалась страница под ней. На снимке «Размер текста» и
+   плитки стилей просвечивали прямо через форму добавления модели, и нечитаемы
+   становились оба слоя.
+
+   Поэтому базовое значение — почти непрозрачное, а размытие и настоящее
+   стекло включаются только там, где браузер это умеет. */
 :root[data-style="yasny"] .bottomNav,
 :root[data-style="yasny"] .sheetPanel,
 :root[data-style="yasny"] .captureSheet,
 :root[data-style="yasny"] .sourceToolsSheet,
-:root[data-style="yasny"] .drawer { background: rgba(255, 255, 255, .9); }
+:root[data-style="yasny"] .drawer { background: rgba(255, 253, 250, .985); }
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-style="yasny"] .bottomNav,
+  :root[data-style="yasny"] .sheetPanel,
+  :root[data-style="yasny"] .captureSheet,
+  :root[data-style="yasny"] .sourceToolsSheet,
+  :root[data-style="yasny"] .drawer {
+    background: rgba(255, 253, 250, .86);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  }
+}
 
 :root[data-style="yasny"] .bottomNav {
   left: 12px; right: 12px;
@@ -1298,7 +1320,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .header {
   background: color-mix(in srgb, var(--ground) 72%, transparent);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border-bottom: 1px solid var(--line);
   box-shadow: none;
 }
@@ -1624,3 +1645,71 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   margin-top: 4px;
 }
+
+/* ── Выбор модели из каталога провайдера ─────────────────────────────────
+   Список берётся у провайдера и кэшируется; дата загрузки видна, потому что
+   состав моделей устаревает молча. Геометрия — общая: высоты из --ctl-h и
+   --chip-h, радиусы из общей лестницы. */
+.modelPicker {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.modelPickerHead { align-items: center; gap: 10px; }
+.modelPickerState { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.modelPickerState strong { font-size: var(--t-secondary); }
+
+/* Устаревший список подсвечен, но не кричит: это повод обновить, не ошибка. */
+.modelPickerStale { color: var(--warn); }
+
+.tag.tagFree { background: var(--ok-soft); color: var(--ok); }
+
+.modelPickerError {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 0; font-size: var(--t-secondary); color: var(--danger);
+}
+
+.modelPickerOpen {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--ctl-h);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--ink-2); font-size: var(--t-secondary); font-weight: var(--w-label);
+}
+.modelPickerOpen:hover { border-color: var(--accent); color: var(--accent); }
+
+.modelPickerList { display: flex; flex-direction: column; gap: 10px; }
+.modelPickerFilters { flex-wrap: wrap; }
+.modelPickerEmpty { margin: 0; }
+
+.modelPickerRows {
+  display: flex; flex-direction: column; gap: 6px;
+  /* Каталог бывает на сотни моделей: список прокручивается внутри себя, а не
+     растягивает всю страницу настроек. */
+  max-height: 46vh; overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.modelPickerRow {
+  display: grid; gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  text-align: left;
+}
+.modelPickerRow:hover { border-color: var(--accent); }
+.modelPickerRow.active { border-color: var(--accent); background: var(--accent-soft); }
+.modelPickerRow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.modelPickerName { font-size: var(--t-body); font-weight: var(--w-label); }
+/* Идентификатор — длинная строка вида «meta-llama/llama-3.3-70b-instruct:free».
+   Переносится по символам, иначе растягивает строку за край карточки. */
+.modelPickerId {
+  font-size: var(--t-caption); color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.modelPickerMeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
