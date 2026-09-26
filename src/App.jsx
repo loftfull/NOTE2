@@ -649,7 +649,7 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
 function Chat({settings}){
   const[role,setRole]=useState(expertRoles[0]);const[messages,setMessages]=useState([]);const[input,setInput]=useState('');const[loading,setLoading]=useState(false);const end=useRef(null)
   useEffect(()=>end.current?.scrollIntoView({behavior:'smooth'}),[messages,loading])
-  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=aiResultText(await runTask(settings,{action:'chat',input:q,system:role.system,history:next.slice(-10)}));setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
+  const send=async()=>{const q=input.trim();if(!q||loading)return;const next=[...messages,{role:'user',content:q}];setMessages(next);setInput('');setLoading(true);const out=aiResultText(await runTask(settings,{action:'chat',input:q,system:role.system,history:messages.slice(-10)}));setMessages(m=>[...m,{role:'assistant',content:out}]);setLoading(false)}
   return <div className="chatShell"><div className="roleBar"><div className="chips">{expertRoles.map(r=><button className={`chip ${role.id===r.id?'active':''}`} key={r.id} onClick={()=>setRole(r)}><Icon name={r.icon} size={15}/> {r.name}</button>)}</div></div><div className="messages">{!messages.length&&<div className="empty"><div className="metricIcon" style={{margin:'0 auto 10px'}}><Icon name={role.icon}/></div><strong>{role.name} workspace</strong><p className="small" style={{marginTop:5}}>Подключённый AI работает через ваш сервер. Без него NOTE2 продолжает работать в локальном режиме.</p></div>}{messages.map((m,i)=><div key={i} className={`bubble ${m.role==='user'?'user':'ai'}`}>{m.content}</div>)}{loading&&<div className="bubble ai">Думаю…</div>}<div ref={end}/></div><div className="composer"><Input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}} placeholder={`Спросить ${role.name}…`}/><Button icon="send" onClick={send} disabled={!input.trim()||loading}>Отправить</Button></div></div>
 }
 
@@ -893,7 +893,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
       if(!refs.length){setAnswer('В проиндексированных источниках не нашлось подходящих фрагментов. Добавьте материалы или переформулируйте вопрос.');return}
       const prompt=groundedPrompt(q,refs)
       if(settings.aiEndpoint){
-        const result=await runTask(settings,{action:'grounded-analysis',input:prompt,system:'You are a retrieval-grounded research assistant. Every material claim must cite provided [S#] evidence. Never invent a citation or use outside facts.'})
+        const result=await runTask(settings,{action:'grounded-analysis',input:prompt,system:'Отвечай только по приведённым фрагментам. После каждого утверждения ставь ссылку вида [S1]. Не выдумывай ссылок и не привлекай сведений извне.'})
         setAnswer(result.origin===AI_ORIGIN.model?result.text:`${aiResultText(result)}\n\n${localGroundedAnswer(q,refs)}`)
       }else setAnswer(localGroundedAnswer(q,refs))
     }catch(err){setAnswer(`Ошибка анализа: ${err.message}`)}finally{setBusy(false)}
@@ -938,8 +938,8 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
 }
 
 function Studio({settings}){
-  const[action,setAction]=useState('summarize');const[input,setInput]=useState('');const[out,setOut]=useState('');const[loading,setLoading]=useState(false);const tools=[['summarize','Summarize','summarize'],['keywords','Keywords','tag'],['improve','Clean up','auto_fix_high'],['title','Generate title','title']]
-  const run=async()=>{setLoading(true);setOut(aiResultText(await runTask(settings,{action,input,system:'Transform the supplied content without inventing facts.'})));setLoading(false)}
+  const[action,setAction]=useState('summarize');const[input,setInput]=useState('');const[out,setOut]=useState('');const[loading,setLoading]=useState(false);const tools=[['summarize','Выжимка','summarize'],['keywords','Ключевые темы','tag'],['improve','Причесать текст','auto_fix_high'],['title','Придумать заголовок','title']]
+  const run=async()=>{setLoading(true);setOut(aiResultText(await runTask(settings,{action,input,system:'Работай только с предоставленным текстом. Не добавляй фактов, которых в нём нет.'})));setLoading(false)}
   return <div className="page"><h1 className="headline">Разобрать текст</h1><p className="subtle" style={{marginTop:5}}>Вставьте любой текст и примените к нему действие. Результат не сохраняется — для этого создайте заметку.</p><div className="split" style={{marginTop:16}}>{tools.map(([id,label,icon])=><button key={id} className={`card ${action===id?'':''}`} style={{textAlign:'left',borderColor:action===id?'var(--brand)':'var(--line)'}} onClick={()=>setAction(id)}><div className="row gap12"><div className="metricIcon"><Icon name={icon}/></div><strong>{label}</strong></div></button>)}</div><Textarea style={{marginTop:14}} value={input} onChange={e=>setInput(e.target.value)} placeholder="Вставьте текст…"/><div style={{marginTop:10}}><Button icon="auto_awesome" onClick={run} disabled={!input.trim()||loading}>{loading?'Обрабатываю…':'Выполнить'}</Button></div>{out&&<Card className="resultBox" style={{marginTop:14}}>{out}</Card>}</div>
 }
 

@@ -2,6 +2,7 @@ import { authenticatedFetch } from './api-session.js'
 import { resolveGatewayEndpoint } from './gateway-url.js'
 import { chatCompletion } from './providers.js'
 import { stemRu } from './stem-ru.js'
+import { systemFor } from './ai-actions.js'
 const STOP = new Set('the a an and or but of to in on for with from as is are was were be been being this that these those it its by at into about your you we our they their i me my have has had can could should would will may might not no do does did if then than also very more most some any all'.split(' '))
 
 export function tokenize(text) {
@@ -145,6 +146,15 @@ async function describeFailure(response) {
 // the gateway path below keeps the provider key off the device, which is what
 // the Android build needs. Both obey the same fail-closed rule: a failure is
 // reported, never replaced by local text.
+/**
+ * Контракт истории: `history` — это ПРЕДЫДУЩИЕ реплики, без текущего вопроса.
+ * Текущий добавляется здесь из `input`.
+ *
+ * Экран разговора передавал историю вместе с только что заданным вопросом, и
+ * он уходил модели дважды подряд: пять сообщений там, где должно быть четыре.
+ * Настоящая модель видит повтор и отвечает хуже, а токены тратятся на обе
+ * копии. Найдено прогоном, а не чтением.
+ */
 async function runRegistryTask({ modelRecord, apiKey, action, input, system, history, signal }) {
   const messages = [
     ...(Array.isArray(history) ? history.filter(m => m?.role && m?.content) : []),
@@ -153,7 +163,11 @@ async function runRegistryTask({ modelRecord, apiKey, action, input, system, his
   try {
     const result = await chatCompletion(
       { ...modelRecord, apiKey },
-      { system: system || undefined, messages, signal }
+      // systemFor добавляет к инструкции вызывающего то, что просит само
+      // действие. Без этого «Сводка», «Улучшить», «Ключевые слова» и
+      // «Название» слали один и тот же запрос, и модель не знала, чего от
+      // неё хотят.
+      { system: systemFor(action, system), messages, signal }
     )
     return { text: result.text, origin: AI_ORIGIN.model, action, model: result.model, error: null }
   } catch (error) {

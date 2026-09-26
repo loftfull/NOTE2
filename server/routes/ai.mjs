@@ -12,29 +12,15 @@
 import { HttpError } from '../http.mjs'
 import { aiConfigured, embedConfigured } from '../config.mjs'
 import { chatCompletion, embed } from '../upstream.mjs'
+import { systemFor } from '../../src/ai-actions.js'
 
-// What each action asks the model for. The client sends an action name and
-// raw text; without these the model gets no instruction at all and answers
-// something shaped differently every time.
-export const ACTION_PROMPTS = {
-  summarize: 'Сожми текст до сути: 3–5 предложений, без вступлений и без оценок. Пиши на языке исходного текста.',
-  keywords: 'Выдели ключевые темы текста как теги вида #тема. Только теги, через пробел, не более 12.',
-  improve: 'Перепиши текст яснее, сохранив все факты и смысл. Не добавляй ничего, чего нет в исходнике.',
-  title: 'Придумай короткий заголовок для этого текста: до 8 слов, без кавычек и без точки в конце.',
-  'instagram-brief': 'Сделай краткую выжимку поста: о чём он и что из него стоит запомнить. 3–5 предложений.',
-  'instagram-detailed': 'Разбери пост подробно: тема, основные утверждения, упомянутые сущности, что полезно на практике.',
-  'instagram-organize': 'Систематизируй содержимое: тема, теги, к какой категории отнести, что с этим делать дальше.',
-  'source-brief': 'Сделай выжимку по приведённым фрагментам. После каждого утверждения ставь ссылку на фрагмент в виде [S1]. Не пиши ничего, что не следует из фрагментов.',
-  'grounded-analysis': 'Ответь на вопрос, опираясь только на приведённые фрагменты. После каждого утверждения ставь ссылку вида [S1]. Если фрагментов недостаточно — так и скажи, не додумывай.'
-}
-
-const DEFAULT_SYSTEM = 'Ты помощник в личной базе знаний. Отвечай по существу, на языке пользователя. Не выдумывай факты: если данных не хватает, скажи об этом прямо.'
+// Инструкции действий — в src/ai-actions.js, общем для сервера и клиента.
+// Копия здесь разошлась бы с клиентской: прямой путь к провайдеру и путь
+// через шлюз должны просить у модели одно и то же, иначе одна и та же кнопка
+// даёт разный результат в зависимости от того, поднят сервер или нет.
 
 /** Builds the message list, keeping the client's own system prompt if it sent one. */
 export function buildMessages({ action, input, system, history }) {
-  const instruction = ACTION_PROMPTS[action] || ''
-  const systemParts = [system || DEFAULT_SYSTEM, instruction].filter(Boolean)
-
   const past = Array.isArray(history)
     ? history
         .filter(message => message && typeof message.content === 'string' && ['user', 'assistant', 'system'].includes(message.role))
@@ -43,7 +29,7 @@ export function buildMessages({ action, input, system, history }) {
     : []
 
   return [
-    { role: 'system', content: systemParts.join('\n\n') },
+    { role: 'system', content: systemFor(action, system) },
     ...past,
     { role: 'user', content: String(input ?? '') }
   ]

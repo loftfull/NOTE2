@@ -12,6 +12,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
+import { once } from 'node:events'
 import { AI_ORIGIN, aiResultText, runAiTask } from '../src/ai.js'
 
 const ENDPOINT = 'https://gateway.example/api/ai'
@@ -135,4 +137,68 @@ test('an external abort signal stops the request', async () => {
     assert.equal(result.origin, AI_ORIGIN.error)
     assert.equal(result.text, '')
   } finally { restore() }
+})
+
+// --- история разговора ------------------------------------------------------
+
+test('вопрос не отправляется модели дважды', async () => {
+  // Экран разговора передавал историю вместе с только что заданным вопросом,
+  // а runRegistryTask добавляет текущий вопрос из input — и он уходил моделью
+  // повторно, подряд. Найдено прогоном против стенда: пять сообщений там, где
+  // должно быть четыре.
+  const captured = []
+  const stand = createServer(async (req, res) => {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    captured.push(JSON.parse(Buffer.concat(chunks).toString()))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ model: 'm', choices: [{ message: { role: 'assistant', content: 'ответ' } }] }))
+  })
+  stand.listen(0, '127.0.0.1')
+  await once(stand, 'listening')
+
+  try {
+    const previous = [
+      { role: 'user', content: 'Сколько воды?' },
+      { role: 'assistant', content: '350 г.' }
+    ]
+    await runAiTask({
+      modelRecord: { baseUrl: `http://127.0.0.1:${stand.address().port}/v1`, model: 'm' },
+      action: 'chat', input: 'А муки?', system: 'Отвечай кратко.', history: previous
+    })
+
+    const sent = captured.at(-1).messages
+    assert.equal(sent.length, 4, 'system + две прошлые реплики + текущий вопрос')
+    assert.equal(sent[0].role, 'system')
+    assert.deepEqual(sent.slice(1, 3), previous, 'прошлые реплики переданы как есть')
+    assert.equal(sent[3].content, 'А муки?')
+
+    const questions = sent.filter(m => m.role === 'user' && m.content === 'А муки?')
+    assert.equal(questions.length, 1, 'вопрос ровно один раз')
+  } finally {
+    stand.close()
+  }
+})
+
+test('пустая и некорректная история не ломают запрос', async () => {
+  const captured = []
+  const stand = createServer(async (req, res) => {
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    captured.push(JSON.parse(Buffer.concat(chunks).toString()))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ model: 'm', choices: [{ message: { role: 'assistant', content: 'ок' } }] }))
+  })
+  stand.listen(0, '127.0.0.1')
+  await once(stand, 'listening')
+  try {
+    const modelRecord = { baseUrl: `http://127.0.0.1:${stand.address().port}/v1`, model: 'm' }
+    for (const history of [undefined, [], 'не массив', [null, {}, { role: 'user' }, { content: 'без роли' }]]) {
+      await runAiTask({ modelRecord, action: 'chat', input: 'вопрос', history })
+      const sent = captured.at(-1).messages
+      assert.equal(sent.at(-1).content, 'вопрос', `история ${JSON.stringify(history)}: вопрос на месте`)
+    }
+  } finally {
+    stand.close()
+  }
 })
