@@ -18,6 +18,22 @@ import { isNativeRuntime } from './gateway-url.js'
 
 const HEALTH_TIMEOUT_MS = 2500
 
+/**
+ * Путь внутри приложения, а не от корня домена.
+ *
+ * '/api/health' попадает в корень того хоста, где лежит страница. Когда
+ * приложение развёрнуто в подкаталоге, это чужой адрес: зонд спрашивает не у
+ * своего шлюза, а у корня домена, и по дороге ещё и шлёт запрос туда, куда
+ * не собирался. То же было с регистрацией сервис-воркера.
+ */
+function appPath(path) {
+  try {
+    return new URL(path.replace(/^\//, ''), document.baseURI).toString()
+  } catch {
+    return `/${path.replace(/^\//, '')}`
+  }
+}
+
 /** Which setting each capability fills in, when the gateway reports it. */
 export const CAPABILITY_ENDPOINTS = {
   ai: ['aiEndpoint', '/api/ai'],
@@ -41,7 +57,8 @@ export async function probeGateway(fetchImpl = globalThis.fetch, origin = '') {
   const controller = typeof AbortController === 'undefined' ? null : new AbortController()
   const timer = controller ? setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS) : null
   try {
-    const response = await fetchImpl(`${String(origin).replace(/\/$/, '')}/api/health`, {
+    const target = origin ? `${String(origin).replace(/\/$/, '')}/api/health` : appPath('api/health')
+    const response = await fetchImpl(target, {
       signal: controller?.signal,
       headers: { Accept: 'application/json' }
     })
@@ -66,14 +83,16 @@ export async function probeGateway(fetchImpl = globalThis.fetch, origin = '') {
  */
 export function endpointsFromProbe(settings = {}, probe = null) {
   if (!probe) return {}
-  const prefix = String(probe.origin || '').replace(/\/$/, '')
+  const explicitOrigin = String(probe.origin || '').replace(/\/$/, '')
   const patch = {}
 
   for (const [capability, [key, path]] of Object.entries(CAPABILITY_ENDPOINTS)) {
     if (!probe.capabilities?.[capability]) continue
     // Only fill a blank. A value the user chose is theirs.
     if (String(settings[key] || '').trim()) continue
-    patch[key] = `${prefix}${path}`
+    // Адрес того же вида, что и у зонда: иначе нашли шлюз по одному адресу,
+    // а запросы пойдут по другому.
+    patch[key] = explicitOrigin ? `${explicitOrigin}${path}` : appPath(path)
   }
   return patch
 }

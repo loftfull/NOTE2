@@ -70,3 +70,57 @@ test('every capability maps to a distinct setting and path', () => {
   assert.equal(new Set(paths).size, paths.length)
   assert.ok(paths.every(path => path.startsWith('/api/')))
 })
+
+// --- размещение не в корне домена -------------------------------------------
+
+/** Подменяет document.baseURI на время одной проверки. */
+function withBase(baseURI, run) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'document')
+  const previous = globalThis.document
+  globalThis.document = { baseURI }
+  try { return run() } finally {
+    if (had) globalThis.document = previous
+    else delete globalThis.document
+  }
+}
+
+test('зонд стучится в каталог приложения, а не в корень домена', async () => {
+  // Опубликованное приложение лежит по пути вида /artifact/<id>/. Абсолютный
+  // '/api/health' ушёл бы в корень чужого хоста — не к своему шлюзу, и запрос
+  // полетел бы туда, куда не собирались.
+  let asked = ''
+  await withBase('https://example.com/artifact/abc123/', () =>
+    probeGateway(async url => { asked = String(url); return jsonResponse(HEALTHY) })
+  )
+  assert.equal(asked, 'https://example.com/artifact/abc123/api/health')
+})
+
+test('в корне домена путь остаётся прежним', async () => {
+  let asked = ''
+  await withBase('https://example.com/', () =>
+    probeGateway(async url => { asked = String(url); return jsonResponse(HEALTHY) })
+  )
+  assert.equal(asked, 'https://example.com/api/health')
+})
+
+test('эндпоинты получают тот же вид адреса, что и зонд', async () => {
+  // Иначе шлюз нашли по одному адресу, а запросы пойдут по другому.
+  const patch = withBase('https://example.com/artifact/abc123/', () =>
+    endpointsFromProbe({}, { capabilities: { ai: true, youtube: true }, origin: '' })
+  )
+  assert.equal(patch.aiEndpoint, 'https://example.com/artifact/abc123/api/ai')
+  assert.equal(patch.youtubeEndpoint, 'https://example.com/artifact/abc123/api/youtube')
+})
+
+test('явно указанный origin по-прежнему главнее', async () => {
+  const patch = withBase('https://example.com/artifact/abc123/', () =>
+    endpointsFromProbe({}, { capabilities: { ai: true }, origin: 'https://gw.example/' })
+  )
+  assert.equal(patch.aiEndpoint, 'https://gw.example/api/ai', 'чужой шлюз указан руками — его и используем')
+})
+
+test('без document работает как раньше', async () => {
+  // Нативная сборка и любая среда без DOM: запасной путь — абсолютный.
+  const patch = endpointsFromProbe({}, { capabilities: { ai: true }, origin: '' })
+  assert.equal(patch.aiEndpoint, '/api/ai')
+})
