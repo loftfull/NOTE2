@@ -4,6 +4,7 @@ import { expertRoles } from './data.js'
 import { exportBundle, importBundle, loadSettings, loadWorkspace, saveSettings, saveWorkspace } from './storage.js'
 import { discoverGateway } from './gateway-discovery.js'
 import { clearSearchHistory, loadSearchHistory, rememberSearch } from './search-history.js'
+import { renderMarkdown } from './markdown.js'
 import { useScrollDirection } from './use-scroll-direction.js'
 import { correctedFilter, visibleSourceFilters } from './source-filters.js'
 import { AI_ORIGIN, aiResultText, semanticScore } from './ai.js'
@@ -610,7 +611,7 @@ function Library({workspace,setWorkspace,openEditor,newNote,initialSection='note
 }
 
 function Editor({editingId,workspace,setWorkspace,navigate,settings}){
-  const note=workspace.notes.find(n=>n.id===editingId);const[title,setTitle]=useState(note?.title||'Без названия');const[content,setContent]=useState(note?.content||'');const[tags,setTags]=useState((note?.tags||[]).join(', '));const[aiOpen,setAiOpen]=useState(false);const[aiOut,setAiOut]=useState('');const[loading,setLoading]=useState(false);const[status,setStatus]=useState('Сохранено');const textRef=useRef(null)
+  const note=workspace.notes.find(n=>n.id===editingId);const[title,setTitle]=useState(note?.title||'Без названия');const[content,setContent]=useState(note?.content||'');const[preview,setPreview]=useState(false);const[tags,setTags]=useState((note?.tags||[]).join(', '));const[aiOpen,setAiOpen]=useState(false);const[aiOut,setAiOut]=useState('');const[loading,setLoading]=useState(false);const[status,setStatus]=useState('Сохранено');const textRef=useRef(null)
   useEffect(()=>{const n=workspace.notes.find(x=>x.id===editingId);if(n){setTitle(n.title);setContent(n.content);setTags((n.tags||[]).join(', '))}},[editingId])
   useEffect(()=>{if(!editingId)return;setStatus('Сохранение…');const t=setTimeout(()=>{setWorkspace(w=>({...w,notes:w.notes.map(n=>n.id===editingId?{...n,title:title.trim()||'Без названия',content,tags:tags.split(',').map(x=>x.trim()).filter(Boolean),updatedAt:Date.now()}:n)}));setStatus('Сохранено')},450);return()=>clearTimeout(t)},[title,content,tags,editingId,setWorkspace])
   if(!note)return <div className="page"><div className="empty">Эта заметка больше не существует.<br/><Button tone="tonal" onClick={()=>navigate('library')}>Назад к заметкам</Button></div></div>
@@ -626,8 +627,8 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
   const applyTemplate=(key)=>{if(content.trim()&&!confirm('Заменить текущий текст выбранным шаблоном?'))return;setContent(templates[key]||'')}
   const backlinks=workspace.notes.filter(n=>n.id!==editingId&&title.trim()&&n.content?.includes(`[[${title.trim()}]]`))
   const ai=async action=>{setLoading(true);setAiOpen(true);setAiOut(aiResultText(await runTask(settings,{action,input:content,system:'Работай только с предоставленной заметкой. Сохраняй факты и явно отмечай неопределённость. Отвечай по-русски.'})));setLoading(false)}
-  return <div className="editor"><div className="editorTop"><button className="iconBtn" onClick={()=>navigate('library')} aria-label="Назад"><Icon name="arrow_back"/></button><input className="titleInput" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название заметки"/><span className="tiny subtle">{status}</span><button className={`iconBtn ${note.pinned?'isActive':''}`} onClick={()=>updateFlag('pinned')} aria-label="Закрепить"><Icon name="push_pin"/></button><button className={`iconBtn ${note.favorite?'isActive':''}`} onClick={()=>updateFlag('favorite')} aria-label="В избранное"><Icon name="star"/></button><button className="iconBtn" onClick={()=>setAiOpen(v=>!v)} aria-label="Инструменты AI"><Icon name="auto_awesome"/></button></div>
-    <div className="editorCommandBar glass" aria-label="Инструменты заметки">
+  return <div className="editor"><div className="editorTop"><button className="iconBtn" onClick={()=>navigate('library')} aria-label="Назад"><Icon name="arrow_back"/></button><input className="titleInput" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название заметки"/><span className="tiny subtle">{status}</span><button className={`iconBtn ${note.pinned?'isActive':''}`} onClick={()=>updateFlag('pinned')} aria-label="Закрепить"><Icon name="push_pin"/></button><button className={`iconBtn ${note.favorite?'isActive':''}`} onClick={()=>updateFlag('favorite')} aria-label="В избранное"><Icon name="star"/></button><button className={`iconBtn ${preview?'isActive':''}`} onClick={()=>setPreview(v=>!v)} aria-label={preview?'Редактировать':'Посмотреть как размечено'}><Icon name={preview?'edit':'visibility'}/></button><button className="iconBtn" onClick={()=>setAiOpen(v=>!v)} aria-label="Инструменты AI"><Icon name="auto_awesome"/></button></div>
+    {!preview&&<div className="editorCommandBar glass" aria-label="Инструменты заметки">
       <button onClick={()=>insertLine('# Заголовок')}><Icon name="title" size={20}/><span>Заголовок</span></button>
       <button onClick={()=>insertLine('- [ ] Задача')}><Icon name="check_box" size={20}/><span>Чек-лист</span></button>
       <button onClick={()=>insertLine('- Пункт')}><Icon name="format_list_bulleted" size={20}/><span>Список</span></button>
@@ -639,9 +640,15 @@ function Editor({editingId,workspace,setWorkspace,navigate,settings}){
       <button onClick={()=>insertLine(new Date().toLocaleString('ru-RU'))}><Icon name="event" size={20}/><span>Дата</span></button>
       <button onClick={()=>navigate('analysis')}><Icon name="attach_file" size={20}/><span>Файл</span></button>
       <button onClick={()=>navigate('media')}><Icon name="mic" size={20}/><span>Голос</span></button>
-    </div>
-    <div className="templateBar"><span>Шаблоны:</span><button onClick={()=>applyTemplate('daily')}>День</button><button onClick={()=>applyTemplate('meeting')}>Встреча</button><button onClick={()=>applyTemplate('project')}>Проект</button><button onClick={()=>applyTemplate('study')}>Конспект</button></div>
-    <div className={`editorBody ${aiOpen?'withAi':''}`}><textarea ref={textRef} className="contentInput" value={content} onChange={e=>setContent(e.target.value)} placeholder="Начните писать…  Используйте [[Название заметки]] для связей."/>{aiOpen&&<aside className="aiPanel"><div className="row space"><strong>Помощник</strong><button className="iconBtn" onClick={()=>setAiOpen(false)}><Icon name="close" size={18}/></button></div><div className="aiActions"><Button tone="tonal" icon="summarize" onClick={()=>ai('summarize')}>Сводка</Button><Button tone="tonal" icon="auto_fix_high" onClick={()=>ai('improve')}>Улучшить</Button><Button tone="tonal" icon="tag" onClick={()=>ai('keywords')}>Ключевые слова</Button><Button tone="tonal" icon="title" onClick={()=>ai('title')}>Название</Button></div><div className="aiOutput">{loading?'Анализирую…':aiOut||'Подключите модель в Профиле — и анализ пойдёт через неё. Без модели доступно только локальное извлечение, и оно помечается явно.'}</div></aside>}</div>
+    </div>}
+    {!preview&&<div className="templateBar"><span>Шаблоны:</span><button onClick={()=>applyTemplate('daily')}>День</button><button onClick={()=>applyTemplate('meeting')}>Встреча</button><button onClick={()=>applyTemplate('project')}>Проект</button><button onClick={()=>applyTemplate('study')}>Конспект</button></div>}
+    <div className={`editorBody ${aiOpen?'withAi':''}`}>{preview
+      /* Отрисованный Markdown. Содержимое заметки приходит не только от
+         владельца — из импортированных файлов, страниц по ссылке, субтитров и
+         ответов модели, — поэтому проходит через санитайзер в markdown.js, а
+         не подставляется сырым. */
+      ? <div className="notePreview" onDoubleClick={()=>setPreview(false)} dangerouslySetInnerHTML={{__html:renderMarkdown(content)}}/>
+      : <textarea ref={textRef} className="contentInput" value={content} onChange={e=>setContent(e.target.value)} placeholder="Начните писать…  Используйте [[Название заметки]] для связей."/>}{aiOpen&&<aside className="aiPanel"><div className="row space"><strong>Помощник</strong><button className="iconBtn" onClick={()=>setAiOpen(false)}><Icon name="close" size={18}/></button></div><div className="aiActions"><Button tone="tonal" icon="summarize" onClick={()=>ai('summarize')}>Сводка</Button><Button tone="tonal" icon="auto_fix_high" onClick={()=>ai('improve')}>Улучшить</Button><Button tone="tonal" icon="tag" onClick={()=>ai('keywords')}>Ключевые слова</Button><Button tone="tonal" icon="title" onClick={()=>ai('title')}>Название</Button></div><div className="aiOutput">{loading?'Анализирую…':aiOut||'Подключите модель в Профиле — и анализ пойдёт через неё. Без модели доступно только локальное извлечение, и оно помечается явно.'}</div></aside>}</div>
     <div className="editorBottom"><Icon name="tag" size={19}/><input className="titleInput" style={{fontSize:15,fontWeight:600}} value={tags} onChange={e=>setTags(e.target.value)} placeholder="Теги через запятую"/><span className="tiny subtle">{countWords(content)} слов · {content.length} знаков · {backlinks.length} обратных ссылок</span></div>
   </div>
 }
