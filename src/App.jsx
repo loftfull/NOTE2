@@ -491,7 +491,7 @@ function CaptureSheet({open,onClose,newNote,navigate,onFiles,onLink}){
     <input ref={videoRef} className="hiddenFile" type="file" accept="video/*" multiple onChange={chosen}/>
     <input ref={audioRef} className="hiddenFile" type="file" accept="audio/*" multiple onChange={chosen}/>
     <input ref={fileRef} className="hiddenFile" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.ods,.odp,.epub,.txt,.md,.csv,.json,.html,.htm,.xml,.yaml,.yml,text/*,application/pdf" multiple onChange={chosen}/>
-    <p className="tiny subtle captureHint">После выбора файл сразу попадает в «Источники». OCR, транскрипция и индексация запускаются существующим pipeline автоматически.</p>
+    <p className="tiny subtle captureHint">После выбора файл сразу попадает в «Источники». Распознавание, расшифровка и индексация запускаются сами.</p>
   </section></div>
 }
 
