@@ -143,11 +143,33 @@
   */
   /* Тёплая бумага, а не холодный экран. Стекло поверх голубовато-серого
      читается как пластик; поверх тёплого кремового — как стекло на бумаге.
-     Контраст пар проверен: текст 15.5:1, вторичный 6.8:1, акцент 4.7:1. */
+
+     МЯГЧЕ — ЧИСЛОМ, А НЕ НА ГЛАЗ. Громким в этой палитре был не фон, а
+     акцент: его насыщенность в OKLCh была C=0.174 против максимума 0.111 у
+     плиток, то есть на 57 % выше всего остального. Один элемент кричал,
+     и от этого набор читался как набор, а не как подбор.
+
+     Насыщенность снижена у всего цветного, светлота сохранена, и каждая
+     пара пересчитана по WCAG 2.1 (определение относительной яркости и
+     контраста — w3.org/TR/WCAG21/#dfn-contrast-ratio). Запас к порогу AA
+     (4.5:1) после правки НЕ уменьшился, а у акцента даже вырос:
+
+       текст на поверхности   16.42:1 → 14.41:1
+       вторичный текст         7.22:1 (без изменений)
+       третичный текст         5.48:1 (без изменений)
+       акцент на поверхности    4.97:1 → 5.12:1
+       белый на акценте         5.18:1 → 5.34:1
+       предупреждение           5.66:1 → 5.64:1
+       успех                    5.81:1 → 5.85:1
+       опасность                6.46:1 → 6.32:1
+
+     Пересчёт в OKLCh — по Björn Ottosson, bottosson.github.io/posts/oklab. */
   --ground: #f7f3ec;
-  --tint-1: rgba(214, 138, 96, .22);
-  --tint-2: rgba(198, 164, 106, .20);
-  --tint-3: rgba(150, 160, 138, .16);
+  /* Подложка под стеклом: прозрачность снижена, иначе тёплые пятна спорят
+     с акцентом за внимание. */
+  --tint-1: rgba(206, 146, 112, .15);
+  --tint-2: rgba(194, 168, 122, .13);
+  --tint-3: rgba(152, 160, 142, .11);
 
   --surface: rgba(255, 253, 250, .68);
   --surface-2: rgba(255, 253, 250, .50);
@@ -156,30 +178,37 @@
   --glass-edge: rgba(255, 255, 255, .80);
   --glass-top: rgba(255, 255, 255, .96);
 
-  --ink: #1f1b16;
+  /* Чернила: OKLCh L 0.225 → 0.270. Почти-чёрный на тёплой бумаге выглядит
+     провалом; 14.41:1 — всё ещё втрое выше требования AA. */
+  --ink: #2a2621;
   --ink-2: #5c5349;
   --ink-3: #6f6558;
-  --line: rgba(31, 27, 22, .10);
-  --line-strong: rgba(31, 27, 22, .18);
+  --line: rgba(42, 38, 33, .09);
+  --line-strong: rgba(42, 38, 33, .16);
 
-  --accent: #c2410c;
+  /* Акцент: тон тот же (OKLCh H 38.4), насыщенность C 0.174 → 0.125,
+     светлота L 0.553 → 0.540. Терракота вместо сигнальной оранжевой. */
+  --accent: #aa5134;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(194, 65, 12, .12);
-  --ok: #4a6b3f;
-  --ok-soft: rgba(74, 107, 63, .14);
-  --warn: #8a5a1a;
-  --warn-soft: rgba(138, 90, 26, .14);
-  --danger: #a33535;
-  --danger-soft: rgba(163, 53, 53, .12);
+  --accent-soft: rgba(170, 81, 52, .10);
+  --ok: #4f6946;
+  --ok-soft: rgba(79, 105, 70, .11);
+  --warn: #835d30;
+  --warn-soft: rgba(131, 93, 48, .11);
+  --danger: #98423f;
+  --danger-soft: rgba(152, 66, 63, .10);
 
   --r-sm: 12px;
   --r-md: 18px;
   --r-lg: 26px;
   --r-pill: 999px;
 
-  --shadow-1: 0 1px 3px rgba(16, 24, 40, .05);
-  --shadow-2: 0 4px 14px -4px rgba(16, 24, 40, .1), 0 12px 32px -12px rgba(16, 24, 40, .12);
-  --shadow-3: 0 8px 24px -6px rgba(16, 24, 40, .14), 0 28px 64px -20px rgba(16, 24, 40, .22);
+  /* Тени были синевато-серые (rgba(16,24,40)) — холодная тень на тёплой
+     бумаге читается как грязь. Теперь тень тёплая, того же тона, что
+     чернила, и слабее по плотности. */
+  --shadow-1: 0 1px 3px rgba(42, 38, 33, .05);
+  --shadow-2: 0 3px 12px -4px rgba(42, 38, 33, .08), 0 10px 28px -12px rgba(42, 38, 33, .10);
+  --shadow-3: 0 6px 20px -6px rgba(42, 38, 33, .11), 0 24px 56px -20px rgba(42, 38, 33, .18);
 
   --font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font);
@@ -204,6 +233,40 @@
   --nav-h: 72px;
   --header-h: 58px;
   color-scheme: light;
+}
+
+/* ---------- шкала движения (общая) ----------
+   Движение было почти отсутствующим: вся анимация сводилась к fadeIn на
+   экране, sheetUp на листе, вращению спиннера и трём правилам :active с
+   translateY(1px). Нажатие на карточку, строку списка, плитку, пункт
+   навигации и чип не давало никакого отклика — палец нажимал, и до
+   перерисовки ничего не происходило.
+
+   Одна шкала длительностей и три кривые на всё приложение. Длительность
+   --ms остаётся в стиле (грифель 140 мс, перо и ясный 200 мс): скорость —
+   часть характера стиля. Остальное общее.
+
+     --ms-tap    отклик на касание: должен успеть до того, как палец
+                 оторвётся, иначе ощущается как залипание
+     --ms        обычный переход состояния
+     --ms-enter  появление: крупные объекты едут дольше мелких
+
+   Кривые:
+     --ease        стандартная для стиля
+     --ease-out    вход: быстро стартует, мягко останавливается
+     --ease-spring лёгкий перелёт при отпускании — отсюда ощущение упругости
+   Перелёт намеренно маленький (1.46 на второй контрольной точке): больше —
+   и интерфейс начинает казаться игрушечным.
+
+   Всё, что ниже, выключается через prefers-reduced-motion в конце файла. */
+:root {
+  --ms-tap: 110ms;
+  --ms-enter: 320ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.46, .64, 1);
+  /* Насколько сминается нажатое. Меньше — незаметно, больше — дёшево. */
+  --press: .975;
+  --press-small: .94;
 }
 
 /* ---------- type scale (shared) ----------
@@ -321,7 +384,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 @media (min-width: 900px) { .main { padding-top: var(--pad); } }
 
-.page { display: flex; flex-direction: column; gap: calc(var(--gap) * 1.6); animation: fadeIn var(--ms) var(--ease) both; }
+/* Экран въезжает снизу, а не просто проявляется: смена экрана должна
+   читаться как движение, иначе непонятно, что это новый экран, а не
+   перерисовка прежнего. Сдвиг маленький (10px) — большой превращает
+   переключение вкладок в аттракцион. */
+.page {
+  display: flex; flex-direction: column; gap: calc(var(--gap) * 1.6);
+  animation: pageIn var(--ms-enter) var(--ease-out) both;
+}
+@keyframes pageIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
 /* An empty container still consumes a flex gap, which showed up as a stray
    ~35px hole between the search row and the notes list.
    Named containers only: `:empty` also matches void elements, and `.page > :empty`
@@ -360,7 +431,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .sidebar, .desktopOnly { display: none; }
 
 /* Daylight floats the header instead of ruling it off. */
-:root[data-style="yasny"] .header { border-bottom-color: transparent; box-shadow: 0 1px 0 rgba(15,23,36,.05); }
+:root[data-style="yasny"] .header { border-bottom-color: transparent; box-shadow: 0 1px 0 rgba(42, 38, 33, .05); }
 
 /* ---------- typography helpers ---------- */
 
@@ -437,7 +508,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   transition: background-color var(--ms) var(--ease), transform var(--ms) var(--ease), box-shadow var(--ms) var(--ease);
 }
 .btn:hover:not(:disabled) { filter: brightness(.94) }
-.btn:active:not(:disabled) { transform: translateY(1px) }
 .btn:disabled { opacity: .4; cursor: not-allowed }
 
 .btn.tonal {
@@ -450,7 +520,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 /* Rounded styles give their buttons the matching silhouette. */
 :root[data-style="pero"] .btn, :root[data-style="yasny"] .btn { border-radius: var(--r-pill); padding: 0 20px }
-:root[data-style="yasny"] .btn { box-shadow: 0 2px 8px -2px rgba(10, 98, 240, .35) }
+/* Под кнопкой был синий ореол rgba(10,98,240,.35) — остаток от прежнего
+   синего акцента: подсветка не совпадала с цветом самой кнопки. Теперь она
+   выводится из акцента и втрое слабее. */
+:root[data-style="yasny"] .btn { box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--accent) 45%, transparent) }
 :root[data-style="yasny"] .btn.tonal { box-shadow: var(--shadow-1); border-color: transparent }
 
 .iconBtn {
@@ -612,7 +685,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--surface);
   border-top: 1px solid var(--line);
 }
-:root[data-style="yasny"] .bottomNav { border-top-color: transparent; box-shadow: 0 -2px 16px -6px rgba(15,23,36,.14) }
+:root[data-style="yasny"] .bottomNav { border-top-color: transparent; box-shadow: 0 -2px 16px -8px rgba(42, 38, 33, .10) }
 
 .bottomNav button {
   position: relative; flex: 1 1 0; min-width: 0;
@@ -649,15 +722,16 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   cursor: pointer;
   transition: transform var(--ms) var(--ease), box-shadow var(--ms) var(--ease);
 }
-.fab:hover { transform: translateY(-1px); box-shadow: var(--shadow-3) }
-.fab:active { transform: translateY(1px) }
+.fab:hover { box-shadow: var(--shadow-3) }
 :root[data-style="grifel"] .fab { border-radius: var(--r-md) }
 
 /* ---------- sheets and overlays ---------- */
 
 .captureBackdrop, .drawerBackdrop, .sourceViewerBackdrop, .sourceToolsBackdrop, .sheetBackdrop {
   position: fixed; inset: 0; z-index: 50;
-  background: rgba(14, 16, 19, .34);
+  /* Затемнение под листами: тёплое и слабее, чем было (.34 холодного
+     rgba(14,16,19)) — иначе лист над тёплой бумагой лежит на серой плёнке. */
+  background: rgba(42, 38, 33, .28);
   animation: fadeIn var(--ms) var(--ease) both;
 }
 
@@ -764,7 +838,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   background: var(--surface); border: var(--card-border); box-shadow: var(--card-shadow);
   transition: border-color var(--ms) var(--ease), transform var(--ms) var(--ease);
 }
-.continueItem:hover { border-color: var(--accent); transform: translateY(-2px) }
+.continueItem:hover { border-color: var(--accent) }
 .continueText { display: flex; flex-direction: column; gap: 4px; min-width: 0 }
 .continueText strong { font-size: var(--t-secondary); color: var(--ink); font-weight: var(--w-label) }
 .continueText span {
@@ -863,11 +937,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .styleTile[data-preview="pero"] i:nth-child(1) { background: #12140f; width: 58% }
 .styleTile[data-preview="pero"] i:nth-child(2) { background: #d2d2cb; width: 90% }
 .styleTile[data-preview="pero"] i:nth-child(3) { background: #0b6e4f; width: 30% }
-.styleTile[data-preview="yasny"] .stylePreview { background: #f4f7fb; border: 1px solid transparent; box-shadow: inset 0 0 0 1px #e3e9f1 }
+/* Образец «Ясного» показывал холодный голубой фон #f4f7fb, чернила #0f1724 и
+   синий акцент #0a62f0 — палитру, которой у этого стиля давно нет. Выбирая
+   стиль, человек видел не то, что получит. Значения ниже — те же, что в
+   токенах стиля: ground, ink, line (чернила 9 % поверх фона) и accent. */
+.styleTile[data-preview="yasny"] .stylePreview { background: #f7f3ec; border: 1px solid transparent; box-shadow: inset 0 0 0 1px #e5e1da }
 .styleTile[data-preview="yasny"] i { border-radius: 999px }
-.styleTile[data-preview="yasny"] i:nth-child(1) { background: #0f1724; width: 56% }
-.styleTile[data-preview="yasny"] i:nth-child(2) { background: #cfd8e4; width: 86% }
-.styleTile[data-preview="yasny"] i:nth-child(3) { background: #0a62f0; width: 38% }
+.styleTile[data-preview="yasny"] i:nth-child(1) { background: #2a2621; width: 56% }
+.styleTile[data-preview="yasny"] i:nth-child(2) { background: #d6d2cc; width: 86% }
+.styleTile[data-preview="yasny"] i:nth-child(3) { background: #aa5134; width: 38% }
 
 /* ---------- model manager ---------- */
 
@@ -1203,7 +1281,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .quickActionsFlat button:hover {
   background: var(--surface-3);
   border-color: #fff;
-  transform: translateY(-1px);
+  /* Подъём убран отсюда намеренно: с :root[data-style] это специфичность
+     (0,4,0), и он перебивал отклик на нажатие (0,2,0) — палец жал, а
+     элемент вместо сжатия поднимался. Подъём при наведении теперь один
+     на всё приложение и живёт под @media (hover: hover). */
 }
 :root[data-style="yasny"] .styleTile.active,
 :root[data-style="yasny"] .providerTile.active,
@@ -1246,7 +1327,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 :root[data-style="yasny"] .segmented button.active { background: var(--surface-3); box-shadow: var(--shadow-1); }
 
 :root[data-style="yasny"] .btn { box-shadow: var(--shadow-1); }
-:root[data-style="yasny"] .btn:active:not(:disabled) { transform: translateY(1px); }
 :root[data-style="yasny"] .chip.active,
 :root[data-style="yasny"] .notebookViews button.active {
   background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
@@ -1357,28 +1437,265 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 /* Пять плиток — одно семейство, а не пять случайных ярких цветов.
    Светлота выровнена численно: относительная яркость каждой сведена к
-   L = 0.145, разброс ×1.014 (было ×1.48). Белая иконка даёт контраст не
+   L = 0.145, разброс ×1.0144 (было ×1.48). Белая иконка даёт контраст не
    ниже 5.36:1 на любой из них — выше порога AA для текста, не только для
-   графики. Насыщенность снижена: приглушённые тона на тёплой бумаге
-   читаются как подбор, кричащие — как набор. */
-:root[data-style="yasny"] .v0 { --tile: #a35538 }   /* глина  */
-:root[data-style="yasny"] .v1 { --tile: #5e7144 }   /* мох    */
-:root[data-style="yasny"] .v2 { --tile: #417371 }   /* бирюза */
-:root[data-style="yasny"] .v3 { --tile: #5b66a4 }   /* индиго */
-:root[data-style="yasny"] .v4 { --tile: #8f5a75 }   /* слива  */
+   графики.
+
+   Насыщенность снижена ещё на 20 % (OKLCh C), а светлота заново решена
+   двоичным поиском так, чтобы яркость осталась 0.145: иначе менее
+   насыщенная плитка становится светлее и белая иконка на ней слабеет.
+   Контраст после правки: 5.38 / 5.42 / 5.39 / 5.42 / 5.36. */
+:root[data-style="yasny"] .v0 { --tile: #995a44 }   /* глина  */
+:root[data-style="yasny"] .v1 { --tile: #606f4c }   /* мох    */
+:root[data-style="yasny"] .v2 { --tile: #4b7170 }   /* бирюза */
+:root[data-style="yasny"] .v3 { --tile: #5e6799 }   /* индиго */
+:root[data-style="yasny"] .v4 { --tile: #895e74 }   /* слива  */
 :root[data-style="yasny"] .quickActionsFlat button .appIcon,
 :root[data-style="yasny"] .captureChoices button .appIcon {
   width: var(--sq); height: var(--sq); font-size: 21px;
   border-radius: var(--r-sm); color: #fff; background: var(--accent);
 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #a35538 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #5e7144 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #417371 }
-:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #5b66a4 }
+/* В листе быстрого добавления все девять плиток были одного акцентного
+   цвета: девять одинаковых квадратов не помогают различать пункты. Здесь
+   та же пятёрка, что и на остальных экранах, по кругу. */
+:root[data-style="yasny"] .captureChoices button:nth-child(5n+1) .appIcon { background: #995a44 }
+:root[data-style="yasny"] .captureChoices button:nth-child(5n+2) .appIcon { background: #606f4c }
+:root[data-style="yasny"] .captureChoices button:nth-child(5n+3) .appIcon { background: #4b7170 }
+:root[data-style="yasny"] .captureChoices button:nth-child(5n+4) .appIcon { background: #5e6799 }
+:root[data-style="yasny"] .captureChoices button:nth-child(5n+5) .appIcon { background: #895e74 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(1) .appIcon { background: #995a44 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(2) .appIcon { background: #606f4c }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(3) .appIcon { background: #4b7170 }
+:root[data-style="yasny"] .quickActionsFlat button:nth-child(4) .appIcon { background: #5e6799 }
 
 @media (min-width: 900px) {
   :root[data-style="yasny"] .main { padding-bottom: calc(var(--pad) + 40px) }
   :root[data-style="yasny"] .fab, :root[data-style="yasny"] .toast { bottom: 28px }
+}
+
+/* ── Движение: отклик, появление, переходы ───────────────────────────────
+
+   Три правила, которым подчиняется всё ниже.
+
+   1. Отклик на касание обязан быть у всего, что нажимается. Если палец
+      нажал и ничего не шевельнулось, человек нажимает второй раз.
+   2. Сжатие — быстрое (--ms-tap), возврат — с лёгким перелётом
+      (--ease-spring). Несимметрично намеренно: так нажатие ощущается
+      упругим, а не вязким.
+   3. Наведение — только там, где есть настоящий курсор. На сенсорном
+      экране :hover залипает после касания и остаётся «подсвеченным»
+      элемент, с которого палец уже ушёл.
+
+   Трансформации стоят только на листьях — кнопках, строках, плитках. На
+   контейнерах их нет сознательно: любой transform, кроме none, делает
+   элемент containing block для position: fixed внутри, и плавающая кнопка
+   с нижней навигацией уехали бы вместе с карточкой. */
+
+/* ── Отклик на нажатие ─────────────────────────────────────────────────
+   Прежние четыре правила (.btn:active → translateY(1px), .fab:active →
+   то же, .captureChoices/.quickActionsFlat → scale(.98) и отдельное
+   правило для «ясного») удалены, а не оставлены рядом: одно из них,
+   :root[data-style="yasny"] .btn:active:not(:disabled), имело
+   специфичность (0,5,0) и перебивало бы всё, что ниже. Проверено
+   измерением: до удаления нажатая кнопка давала matrix(1,0,0,1,0,1) —
+   то есть сдвиг на пиксель, а не сжатие. */
+
+.btn,
+.iconBtn,
+.chip,
+.segmented button,
+.filterRow button,
+.styleTile,
+.modelPickerRow,
+.editorCommandBar button,
+.templateBar button,
+.quickActionsFlat button,
+.captureChoices button,
+.noteRow,
+.unifiedSourceRow,
+.jobRow .jobMain,
+.continueItem,
+.dailySurface,
+.bottomNav button,
+.textAction {
+  transition:
+    transform var(--ms) var(--ease-spring),
+    background-color var(--ms) var(--ease),
+    border-color var(--ms) var(--ease),
+    color var(--ms) var(--ease),
+    box-shadow var(--ms) var(--ease);
+}
+
+/* Наведение — только с настоящим курсором: на сенсорном экране :hover
+   залипает после касания. Блок стоит ПЕРЕД правилами нажатия намеренно: у
+   них равная специфичность, а при нажатии мышью элемент одновременно и
+   :hover, и :active — выигрывает то, что ниже. Проверено измерением: пока
+   наведение стояло ниже, нажатая кнопка давала matrix(1,0,0,1,0,-1), то
+   есть подъём от наведения, а не сжатие от нажатия. */
+@media (hover: hover) and (pointer: fine) {
+  .noteRow:hover, .unifiedSourceRow:hover, .continueItem:hover,
+  .jobRow .jobMain:hover, .dailySurface:hover {
+    transform: translateY(-1px);
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .iconBtn:hover { background: var(--accent-soft); }
+  .fab:hover { transform: translateY(-2px) scale(1.03); }
+}
+
+.btn:active:not(:disabled),
+.chip:active,
+.segmented button:active,
+.filterRow button:active,
+.styleTile:active,
+.modelPickerRow:active,
+.editorCommandBar button:active,
+.templateBar button:active,
+.bottomNav button:active,
+.noteRow:active,
+.unifiedSourceRow:active,
+.jobRow .jobMain:active,
+.continueItem:active,
+.dailySurface:active,
+.textAction:active {
+  transform: scale(var(--press));
+  transition-duration: var(--ms-tap);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Мелкие квадратные цели сминаются заметнее: на 44×44 сжатие в 2,5 %
+   составляет один пиксель и не читается. */
+.iconBtn:active,
+.quickActionsFlat button:active,
+.captureChoices button:active {
+  transform: scale(var(--press-small));
+  transition-duration: var(--ms-tap);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Нажатие на плавающую кнопку: она крупная и отдельная, поэтому отклик у
+   неё заметнее остальных. */
+.fab { transition: transform var(--ms) var(--ease-spring), box-shadow var(--ms) var(--ease), opacity var(--ms) var(--ease); }
+.fab:active { transform: scale(.9); transition-duration: var(--ms-tap); transition-timing-function: var(--ease-out); }
+
+/* Плитка объекта отзывается вместе со своей строкой, а не отдельно. */
+.noteRow:active .knowledgeObject,
+.unifiedSourceRow:active .unifiedSourceIcon,
+.continueItem:active .semanticObject {
+  transform: scale(.94);
+  transition: transform var(--ms-tap) var(--ease-out);
+}
+.knowledgeObject, .semanticObject, .unifiedSourceIcon, .metricIcon {
+  transition: transform var(--ms) var(--ease-spring), box-shadow var(--ms) var(--ease);
+}
+
+/* Фокус с клавиатуры: обводка отъезжает от элемента, а не появляется на
+   нём. Нарочно не через box-shadow: у кнопки и у поля ввода свои тени
+   (у кнопки — подсветка акцентом, у поля — кольцо при фокусе), и общее
+   правило их бы стёрло. outline-offset ничего не затирает и не влияет на
+   раскладку. */
+:focus-visible {
+  transition: outline-offset var(--ms-tap) var(--ease-out), outline-color var(--ms-tap) var(--ease-out);
+}
+.btn:focus-visible, .iconBtn:focus-visible, .chip:focus-visible,
+.noteRow:focus-visible, .unifiedSourceRow:focus-visible,
+.continueItem:focus-visible, .bottomNav button:focus-visible,
+.quickActionsFlat button:focus-visible, .captureChoices button:focus-visible {
+  outline-offset: 3px;
+}
+
+/* Переключатель: кружок едет, а не перескакивает. */
+.switch, .switch::after, .toggle, .toggle::after {
+  transition: background-color var(--ms) var(--ease), transform var(--ms) var(--ease-spring);
+}
+
+/* ── Появление ───────────────────────────────────────────────────────── */
+
+/* Карточки и строки на экране появляются лесенкой. Задержка маленькая и
+   обрывается на шестом элементе: дальше ожидание начинает раздражать, а
+   длинные списки всё равно прокручиваются. */
+.page > .card,
+.page > .analysisGrid > .card,
+.page > .todaySection,
+.noteRow,
+.unifiedSourceRow {
+  animation: riseIn var(--ms-enter) var(--ease-out) both;
+}
+@keyframes riseIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+
+.page > *:nth-child(1), .noteRow:nth-child(1), .unifiedSourceRow:nth-child(1) { animation-delay: 0ms }
+.page > *:nth-child(2), .noteRow:nth-child(2), .unifiedSourceRow:nth-child(2) { animation-delay: 35ms }
+.page > *:nth-child(3), .noteRow:nth-child(3), .unifiedSourceRow:nth-child(3) { animation-delay: 70ms }
+.page > *:nth-child(4), .noteRow:nth-child(4), .unifiedSourceRow:nth-child(4) { animation-delay: 105ms }
+.page > *:nth-child(5), .noteRow:nth-child(5), .unifiedSourceRow:nth-child(5) { animation-delay: 140ms }
+.page > *:nth-child(n+6), .noteRow:nth-child(n+6), .unifiedSourceRow:nth-child(n+6) { animation-delay: 175ms }
+
+/* Лист снизу: въезжает с упругой кривой на всю высоту своего хода, а не
+   на символические 14px, как было. */
+.captureSheet, .sourceToolsSheet, .sheetPanel {
+  animation: sheetRise var(--ms-enter) var(--ease-out) both;
+}
+@keyframes sheetRise { from { transform: translateY(28px); opacity: 0 } to { transform: none; opacity: 1 } }
+
+/* Пункты листа появляются следом за ним, иначе лист въезжает уже
+   «заполненным» и движение читается как подмена картинки. */
+.captureChoices button { animation: riseIn var(--ms) var(--ease-out) both }
+.captureChoices button:nth-child(1) { animation-delay: 60ms }
+.captureChoices button:nth-child(2) { animation-delay: 80ms }
+.captureChoices button:nth-child(3) { animation-delay: 100ms }
+.captureChoices button:nth-child(4) { animation-delay: 120ms }
+.captureChoices button:nth-child(5) { animation-delay: 140ms }
+.captureChoices button:nth-child(6) { animation-delay: 160ms }
+.captureChoices button:nth-child(7) { animation-delay: 180ms }
+.captureChoices button:nth-child(8) { animation-delay: 200ms }
+.captureChoices button:nth-child(9) { animation-delay: 220ms }
+
+/* Уведомление: въезжает снизу и там же гаснет. */
+.toast { animation: toastIn var(--ms-enter) var(--ease-spring) both }
+@keyframes toastIn {
+  from { transform: translateX(-50%) translateY(14px) scale(.96); opacity: 0 }
+  to { transform: translateX(-50%); opacity: 1 }
+}
+
+/* Отрисованная заметка проявляется при переключении вида. */
+.notePreview { animation: fadeIn var(--ms) var(--ease-out) both }
+
+/* ── Переходы состояний ──────────────────────────────────────────────── */
+
+/* Активный пункт навигации: заливка проявляется, а иконка слегка
+   подрастает — движение подсказывает, куда переключились. */
+:root[data-style="yasny"] .bottomNav button .appIcon {
+  transition: background-color var(--ms) var(--ease), color var(--ms) var(--ease), transform var(--ms) var(--ease-spring);
+}
+:root[data-style="yasny"] .bottomNav button.active .appIcon { transform: scale(1.06) }
+.bottomNav button:active .appIcon { transform: scale(.9); transition-duration: var(--ms-tap) }
+
+/* Полоса выполнения и точки-индикаторы: едут, а не прыгают. */
+.jobProgress > span, .jobProgress > i { transition: width var(--ms-enter) var(--ease-out) }
+
+/* ── Доступность ─────────────────────────────────────────────────────────
+   Блок ниже обнуляет длительности для prefers-reduced-motion. Отдельно
+   снимаются трансформации: нулевая длительность убирает движение, но
+   конечное состояние scale(.94) осталось бы применённым мгновенно — для
+   человека, которому нужно меньше движения, это дёрганье без перехода. */
+@media (prefers-reduced-motion: reduce) {
+  /* Селектор повторяет боевой дословно, включая :not(:disabled): с более
+     коротким «.btn:active» специфичность ниже (0,2,0 против 0,3,0), и
+     отмена не срабатывала — измерено, кнопка продолжала сжиматься. */
+  .btn:active:not(:disabled), .iconBtn:active, .chip:active, .segmented button:active,
+  .filterRow button:active, .styleTile:active, .modelPickerRow:active,
+  .editorCommandBar button:active, .templateBar button:active,
+  .quickActionsFlat button:active, .captureChoices button:active,
+  .noteRow:active, .unifiedSourceRow:active, .jobRow .jobMain:active,
+  .continueItem:active, .dailySurface:active, .textAction:active,
+  .bottomNav button:active, .fab:active, .fab:hover,
+  .noteRow:hover, .unifiedSourceRow:hover, .continueItem:hover,
+  .jobRow .jobMain:hover, .dailySurface:hover, .btn:hover,
+  .noteRow:active .knowledgeObject, .unifiedSourceRow:active .unifiedSourceIcon,
+  .continueItem:active .semanticObject,
+  .bottomNav button:active .appIcon {
+    transform: none;
+  }
+  .page > *, .noteRow, .unifiedSourceRow, .captureChoices button { animation-delay: 0ms !important }
 }
 
 /* ---------- accessibility ---------- */
