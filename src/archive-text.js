@@ -1,3 +1,5 @@
+import { htmlToText } from './html-text.js'
+
 const decoder = new TextDecoder('utf-8', { fatal: false })
 
 function u16(view, offset) { return view.getUint16(offset, true) }
@@ -11,13 +13,13 @@ export function listZipEntries(input) {
   for (let i = bytes.length - 22; i >= min; i -= 1) {
     if (u32(view, i) === 0x06054b50) { eocd = i; break }
   }
-  if (eocd < 0) throw new Error('ZIP central directory was not found')
+  if (eocd < 0) throw new Error('В файле не найден каталог ZIP: он повреждён или это не документ Office/EPUB')
   const total = u16(view, eocd + 10)
   const centralOffset = u32(view, eocd + 16)
   const entries = []
   let offset = centralOffset
   for (let i = 0; i < total; i += 1) {
-    if (offset + 46 > bytes.length || u32(view, offset) !== 0x02014b50) throw new Error('Invalid ZIP central directory entry')
+    if (offset + 46 > bytes.length || u32(view, offset) !== 0x02014b50) throw new Error('Повреждённая запись в каталоге ZIP')
     const method = u16(view, offset + 10)
     const compressedSize = u32(view, offset + 20)
     const size = u32(view, offset + 24)
@@ -41,7 +43,7 @@ export const MAX_ENTRY_BYTES = 64 * 1024 * 1024
 // passed, instead of materialising the whole thing with arrayBuffer() and
 // discovering the size afterwards — by which point the memory is already gone.
 async function inflateRaw(bytes, { limit = MAX_ENTRY_BYTES, name = 'entry' } = {}) {
-  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot decompress Office/EPUB files locally')
+  if (typeof DecompressionStream === 'undefined') throw new Error('Этот браузер не умеет распаковывать Office и EPUB на устройстве')
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
   const reader = stream.getReader()
   const parts = []
@@ -53,7 +55,7 @@ async function inflateRaw(bytes, { limit = MAX_ENTRY_BYTES, name = 'entry' } = {
       total += value.byteLength
       if (total > limit) {
         await reader.cancel()
-        throw new Error(`Entry ${name} expands beyond the ${Math.round(limit / 1024 / 1024)} MB decompression limit and was rejected.`)
+        throw new Error(`Запись ${name} при распаковке превышает предел ${Math.round(limit / 1024 / 1024)} МБ и отклонена.`)
       }
       parts.push(value)
     }
@@ -70,12 +72,12 @@ export async function extractZipEntry(input, entry) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const o = entry.localOffset
-  if (o + 30 > bytes.length || u32(view, o) !== 0x04034b50) throw new Error(`Invalid local ZIP header for ${entry.name}`)
+  if (o + 30 > bytes.length || u32(view, o) !== 0x04034b50) throw new Error(`Повреждённый локальный заголовок ZIP у записи ${entry.name}`)
   const nameLength = u16(view, o + 26)
   const extraLength = u16(view, o + 28)
   const start = o + 30 + nameLength + extraLength
   const end = start + entry.compressedSize
-  if (end > bytes.length) throw new Error(`Truncated ZIP entry: ${entry.name}`)
+  if (end > bytes.length) throw new Error(`Запись ZIP обрезана: ${entry.name}`)
   const compressed = bytes.slice(start, end)
   if (entry.method === 0) return compressed
   if (entry.method === 8) {
@@ -86,7 +88,7 @@ export async function extractZipEntry(input, entry) {
     const limit = Number.isFinite(declared) && declared > 0 ? Math.min(declared, MAX_ENTRY_BYTES) : MAX_ENTRY_BYTES
     return inflateRaw(compressed, { limit, name: entry.name })
   }
-  throw new Error(`Unsupported ZIP compression method ${entry.method}`)
+  throw new Error(`Неподдерживаемый метод сжатия ZIP: ${entry.method}`)
 }
 
 function decodeXml(value = '') {
@@ -155,7 +157,7 @@ async function extractPptx(bytes, entries) {
   for (let i = 0; i < slides.length; i += 1) {
     const xml = await entryText(bytes, slides[i])
     const text = stripMarkup(xml, { paragraphTags: ['a:p'] })
-    if (text) sections.push({ label: `Slide ${i + 1}`, text })
+    if (text) sections.push({ label: `Слайд ${i + 1}`, text })
   }
   return sections
 }
@@ -187,7 +189,7 @@ async function extractXlsx(bytes, entries) {
       }
       if (cells.some(Boolean)) lines.push(cells.join('\t'))
     }
-    if (lines.length) sections.push({ label: `Sheet ${i + 1}`, text: lines.join('\n') })
+    if (lines.length) sections.push({ label: `Лист ${i + 1}`, text: lines.join('\n') })
   }
   return sections
 }
@@ -200,14 +202,9 @@ async function extractOpenDocument(bytes, entries) {
   return text ? [{ label: 'Документ', text }] : []
 }
 
-function htmlToText(html = '') {
-  return cleanText(String(html)
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' '))
-}
+// Главы EPUB — это XHTML, и разбирает их тот же модуль, что страницы по
+// ссылке: своя копия здесь не выбрасывала <head>, из-за чего <title> главы
+// попадал в текст и дублировал её <h1>.
 
 async function extractEpub(bytes, entries) {
   const docs = entries.filter(e => /\.(xhtml|html|htm)$/i.test(e.name) && !/(nav|toc)\.(xhtml|html|htm)$/i.test(e.name)).sort((a,b)=>a.name.localeCompare(b.name))
@@ -228,7 +225,7 @@ export async function extractArchiveText(arrayBuffer, kind) {
   else if (kind === 'xlsx') sections = await extractXlsx(bytes, entries)
   else if (kind === 'odt' || kind === 'odp' || kind === 'ods') sections = await extractOpenDocument(bytes, entries)
   else if (kind === 'epub') sections = await extractEpub(bytes, entries)
-  else throw new Error(`Unsupported archive document kind: ${kind}`)
+  else throw new Error(`Неизвестный тип документа-архива: ${kind}`)
   const text = sections.map(section => `${section.label}\n${section.text}`).join('\n\n').trim()
   return { text, sections, entries: entries.length }
 }

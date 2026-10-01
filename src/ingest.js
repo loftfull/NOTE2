@@ -1,6 +1,7 @@
 import { extractArchiveText } from './archive-text.js'
 import { extractPdfText } from './pdf-text.js'
 import { tokenize } from './ai.js'
+import { htmlTitle, htmlToText } from './html-text.js'
 
 const TEXT_EXTENSIONS = new Set([
   'txt','md','markdown','csv','tsv','json','jsonl','html','htm','xml','yaml','yml','log',
@@ -25,21 +26,25 @@ export function normalizeText(text = '') {
     .trim()
 }
 
+// Оставлено как имя, которым пользуется остальной код; реализация одна и
+// общая с сервером — см. src/html-text.js.
 export function stripHtml(html = '') {
-  let text = String(html)
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
-    .replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-  return normalizeText(text)
+  return htmlToText(html)
+}
+
+/**
+ * Текст локального .html вместе с заголовком страницы первой строкой.
+ *
+ * <head> выбрасывается целиком, иначе <title> просачивается в текст и часто
+ * дублирует первый <h1>. Заголовок полезен — но как осознанная первая строка,
+ * и только если он не повторяет её же.
+ */
+export function htmlFileText(html = '') {
+  const body = htmlToText(html)
+  const title = htmlTitle(html)
+  if (!title) return body
+  const first = body.split('\n', 1)[0].trim()
+  return first === title ? body : `${title}\n\n${body}`.trim()
 }
 
 export function inferKind({ name = '', type = '' } = {}) {
@@ -58,11 +63,11 @@ export function inferKind({ name = '', type = '' } = {}) {
 }
 
 export async function parseLocalFile(file) {
-  if (!file) throw new Error('No file supplied')
+  if (!file) throw new Error('Файл не передан')
   const kind = inferKind(file)
   const base = {
     id: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    name: file.name || 'Untitled source',
+    name: file.name || 'Источник без названия',
     type: file.type || 'application/octet-stream',
     size: Number(file.size || 0),
     kind,
@@ -72,41 +77,41 @@ export async function parseLocalFile(file) {
   }
 
   if (file.size > MAX_LOCAL_TEXT_BYTES && ['text','html'].includes(kind)) {
-    return { ...base, status: 'too-large', text: '', error: `Text file exceeds ${Math.round(MAX_LOCAL_TEXT_BYTES / 1024 / 1024)} MB local parsing limit.` }
+    return { ...base, status: 'too-large', text: '', error: `Текстовый файл больше ${Math.round(MAX_LOCAL_TEXT_BYTES / 1024 / 1024)} МБ — предела разбора на устройстве.` }
   }
 
   if (kind === 'text' || kind === 'html') {
     const raw = await file.text()
-    const text = kind === 'html' ? stripHtml(raw) : normalizeText(raw)
+    const text = kind === 'html' ? htmlFileText(raw) : normalizeText(raw)
     return { ...base, status: text ? 'ready' : 'empty', text, wordCount: tokenize(text).length, charCount: text.length }
   }
 
 
   if (kind === 'pdf') {
-    if (file.size > MAX_LOCAL_PDF_BYTES) return { ...base, status: 'too-large', text: '', error: `PDF exceeds ${Math.round(MAX_LOCAL_PDF_BYTES / 1024 / 1024)} MB local parsing limit.` }
+    if (file.size > MAX_LOCAL_PDF_BYTES) return { ...base, status: 'too-large', text: '', error: `PDF больше ${Math.round(MAX_LOCAL_PDF_BYTES / 1024 / 1024)} МБ — предела разбора на устройстве.` }
     try {
       const extracted = await extractPdfText(await file.arrayBuffer())
       const text = normalizeText(extracted.text)
       return { ...base, status: text ? 'ready' : 'needs-ocr', text, wordCount: tokenize(text).length, charCount: text.length, pageCount: extracted.pageCount, sectionCount: extracted.sections.length, sections: extracted.sections }
     } catch (error) {
-      return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: `Local PDF extraction failed: ${error.message}` }
+      return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: `Не удалось извлечь текст из PDF на устройстве: ${error.message}` }
     }
   }
 
   if (['docx','pptx','xlsx','odt','odp','ods','epub'].includes(kind)) {
-    if (file.size > MAX_LOCAL_ARCHIVE_BYTES) return { ...base, status: 'too-large', text: '', error: `Archive document exceeds ${Math.round(MAX_LOCAL_ARCHIVE_BYTES / 1024 / 1024)} MB local parsing limit.` }
+    if (file.size > MAX_LOCAL_ARCHIVE_BYTES) return { ...base, status: 'too-large', text: '', error: `Документ больше ${Math.round(MAX_LOCAL_ARCHIVE_BYTES / 1024 / 1024)} МБ — предела разбора на устройстве.` }
     try {
       const extracted = await extractArchiveText(await file.arrayBuffer(), kind)
       const text = normalizeText(extracted.text)
       return { ...base, status: text ? 'ready' : 'empty', text, wordCount: tokenize(text).length, charCount: text.length, sectionCount: extracted.sections.length, sections: extracted.sections, archiveEntries: extracted.entries }
     } catch (error) {
-      return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: `Local ${kind.toUpperCase()} extraction failed: ${error.message}` }
+      return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: `Не удалось разобрать ${kind.toUpperCase()} на устройстве: ${error.message}` }
     }
   }
 
   const parserHint = ['image','audio','video'].includes(kind)
-    ? 'Media bytes are accepted as a source, but transcription/vision extraction requires the ingestion worker.'
-    : 'This binary format needs a dedicated ingestion connector.'
+    ? 'Файл принят как источник, но расшифровка и распознавание идут через внешний сервис — укажите его в Профиле.'
+    : 'Для этого двоичного формата нужен отдельный коннектор: на устройстве он не разбирается.'
 
   return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: parserHint }
 }

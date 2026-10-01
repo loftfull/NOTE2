@@ -42,6 +42,10 @@ const NAV = [
 const MOBILE = NAV.map(item=>item[0])
 
 // Light-only by product decision: three visual styles, no dark theme.
+// Оценки качества извлечения приходят из src/extraction-quality.js
+// латинскими идентификаторами; на экран они выводятся по-русски.
+const QUALITY_GRADES = { strong: 'хорошее', usable: 'рабочее', review: 'требует проверки', weak: 'слабое', empty: 'пусто' }
+
 export const APP_STYLES = [
   ['yasny','Мягкий','Приподнятые поверхности, цветные плитки, плавающая панель.'],
   ['grifel','Грифель','Плотный инструмент. Тонкие линии, индиго.'],
@@ -715,7 +719,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
         source.status==='ready'?ready++:needs++
       }
       await refresh()
-      setMessage(`${picked.length} source${picked.length===1?'':'s'} added · ${ready} searchable${vectors?` · ${vectors} vector-indexed`:''}${needs?` · ${needs} need a connector/retry`:''}`)
+      setMessage(`${sourcesLabel(picked.length)} ${pluralRu(picked.length,'добавлен','добавлены','добавлены')} · ${ready} ${pluralRu(ready,'доступен','доступны','доступны')} для поиска${vectors?` · ${vectors} с векторным индексом`:''}${needs?` · ${needs} ${pluralRu(needs,'ждёт','ждут','ждут')} коннектор или повтор`:''}`)
     }catch(err){setMessage(err.message)}finally{setBusy(false);if(fileRef.current)fileRef.current.value=''}
   }
 
@@ -725,7 +729,7 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
     try{
       const now=Date.now()
       const source={id:crypto.randomUUID?.()||String(now),name:`Pasted text · ${new Date(now).toLocaleString()}`,type:'text/plain',size:new Blob([text]).size,kind:'text',origin:'paste',status:'ready',text:text.trim(),wordCount:countWords(text),charCount:text.length,createdAt:now,updatedAt:now}
-      await indexSourceRecord(source,settings);setText('');await refresh();setMessage('Pasted text indexed as a source.')
+      await indexSourceRecord(source,settings);setText('');await refresh();setMessage('Текст сохранён как источник и добавлен в поиск.')
     }catch(err){setMessage(err.message)}finally{setBusy(false)}
   }
 
@@ -983,12 +987,12 @@ function Media({settings,setToast}){
     try{
       const queued=await enqueueMediaTranscription(file);onJobUpdate(queued)
       const done=await runMediaTranscriptionJob(queued,settings.transcribeEndpoint,onJobUpdate)
-      setMessage(`${done.result?.sections?.length||0} transcript segment${done.result?.sections?.length===1?'':'s'} · saved in durable queue`)
+      setMessage(`${done.result?.sections?.length||0} ${pluralRu(done.result?.sections?.length||0,'фрагмент расшифровки','фрагмента расшифровки','фрагментов расшифровки')} · сохранено в очереди`)
     }catch(error){setMessage(error.message)}finally{setBusy(false);await refreshJobs()}
   }
   const resumeJob=async job=>{
     setBusy(true);setMessage('');setIndexed(false);setActiveJob(job)
-    try{const done=await retryQueuedMediaJob(job.id,settings.transcribeEndpoint,onJobUpdate);setMessage(`Resumed and completed · ${done.result?.sections?.length||0} segments`)}catch(error){setMessage(error.message)}finally{setBusy(false);await refreshJobs()}
+    try{const done=await retryQueuedMediaJob(job.id,settings.transcribeEndpoint,onJobUpdate);setMessage(`Повтор завершён · ${done.result?.sections?.length||0} ${pluralRu(done.result?.sections?.length||0,'фрагмент','фрагмента','фрагментов')}`)}catch(error){setMessage(error.message)}finally{setBusy(false);await refreshJobs()}
   }
   const removeJob=async job=>{if(!confirm(`Delete queued media job "${job.filename}"?`))return;await deleteMediaJob(job.id);if(activeJob?.id===job.id)setActiveJob(null);await refreshJobs()}
   const selectJob=job=>{setActiveJob(job);setFile(null);setIndexed(false);setMessage(job.status==='done'?'Completed transcript restored from local queue.':job.error||`Job status: ${job.status}`)}
@@ -1010,7 +1014,7 @@ function Media({settings,setToast}){
       const recorder=new MediaRecorder(stream,preferred?{mimeType:preferred}:undefined);recorderRef.current=recorder
       recorder.ondataavailable=e=>{if(e.data?.size)recordedRef.current.push(e.data)}
       recorder.onstop=()=>{const mimeType=recorder.mimeType||'audio/webm';const ext=mimeType.includes('ogg')?'ogg':'webm';const blob=new Blob(recordedRef.current,{type:mimeType});chooseFile(new File([blob],`recording-${new Date().toISOString().replace(/[:.]/g,'-')}.${ext}`,{type:mimeType,lastModified:Date.now()}));stream.getTracks().forEach(track=>track.stop());streamRef.current=null}
-      recorder.start(500);setRecording(true);setMessage('Recording locally. Stop when finished; the recording is persisted only after you queue transcription.')
+      recorder.start(500);setRecording(true);setMessage('Идёт запись на устройстве. Нажмите «Стоп», когда закончите: запись сохраняется только после постановки в очередь на расшифровку.')
     }catch(error){setMessage(error.message)}
   }
   const stopRecording=()=>{const recorder=recorderRef.current;if(recorder&&recorder.state!=='inactive')recorder.stop();streamRef.current?.getTracks().forEach(track=>track.stop());setRecording(false)}
@@ -1029,7 +1033,7 @@ function Media({settings,setToast}){
           <label className="dropzone" style={{display:'block',marginTop:14}}><Icon name="upload_file" size={42}/><p style={{marginTop:8,fontWeight:600}}>{currentName||'Выберите аудио или видео'}</p><p className="small subtle" style={{marginTop:4}}>{currentBlob?`${currentType||'Тип не определён'} · ${fileSize(activeJob?.size||file?.size||0)}`:'Файл остаётся на устройстве, пока вы не нажмёте «Расшифровать».'}</p><input className="hiddenFile" type="file" accept="audio/*,video/mp4,video/webm" onChange={e=>chooseFile(e.target.files?.[0]||null)}/></label>
           {currentBlob&&previewUrl&&<div className="mediaPreview">{String(currentType).startsWith('video/')?<video controls src={previewUrl}/>:<audio controls src={previewUrl}/>}</div>}
           <div className="row gap8" style={{marginTop:12,flexWrap:'wrap'}}>{file&&<Button icon="queue" onClick={transcribe} disabled={busy}>{busy?'Обрабатываю…':'Queue & transcribe'}</Button>}{activeJob&&activeJob.status!=='done'&&<Button icon="restart_alt" onClick={()=>resumeJob(activeJob)} disabled={busy}>Resume / retry</Button>}{result?.text&&<Button tone="tonal" icon="inventory_2" onClick={indexTranscript} disabled={busy||indexed}>{indexed?'В поиске':'Добавить в поиск'}</Button>}{srt&&<Button tone="tonal" icon="download" onClick={()=>downloadText(`${currentName||'transcript'}.srt`,srt,'application/x-subrip')}>SRT</Button>}</div>
-          {quality&&<div className="qualityRow"><span className={`qualityBadge ${quality.grade}`}>Extraction {quality.grade} · {Math.round((quality.score||0)*100)}%</span>{quality.warnings?.length>0&&<span className="tiny subtle">{quality.warnings.join(' ')}</span>}</div>}
+          {quality&&<div className="qualityRow"><span className={`qualityBadge ${quality.grade}`}>Извлечение: {QUALITY_GRADES[quality.grade]||quality.grade} · {Math.round((quality.score||0)*100)}%</span>{quality.warnings?.length>0&&<span className="tiny subtle">{quality.warnings.join(' ')}</span>}</div>}
         </Card>
         <Card><div className="row space"><div><h3>Durable queue</h3><p className="small subtle" style={{marginTop:4}}>Raw media stays local in IndexedDB for retry and evidence playback.</p></div><span className="tag">{jobs.length}</span></div><div className="jobList">{jobs.map(job=><div className={`jobRow ${activeJob?.id===job.id?'active':''}`} key={job.id}><button className="jobMain" onClick={()=>selectJob(job)}><div className="row space gap8"><strong>{job.filename}</strong><span className={`jobState ${job.status}`}>{job.status}</span></div><div className="tiny subtle" style={{marginTop:4}}>{fileSize(job.size)} · {job.transport||'pending'} · {Math.round((job.progress||0)*100)}% · attempts {job.attempts||0}{job.upload?.totalChunks?` · chunks ${job.upload.received||0}/${job.upload.totalChunks}`:''}{job.error?` · ${job.error}`:''}</div><div className="jobProgress"><span style={{width:`${Math.max(2,Math.round((job.progress||0)*100))}%`}}/></div></button><div className="row gap8">{job.status!=='done'&&<button className="iconBtn" title="Resume" onClick={()=>resumeJob(job)}><Icon name="restart_alt" size={17}/></button>}<button className="iconBtn" title="Delete" onClick={()=>removeJob(job)}><Icon name="delete" size={17}/></button></div></div>)}{!jobs.length&&<div className="empty small">Очередь обработки пуста.</div>}</div></Card>
       </div>

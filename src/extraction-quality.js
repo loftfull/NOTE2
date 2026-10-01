@@ -1,8 +1,10 @@
+import { pluralRu } from './plural.js'
+
 function ratio(numerator, denominator) { return denominator ? numerator / denominator : 0 }
 
 export function assessExtractionQuality(text = '', sections = []) {
   const normalized = String(text).replace(/\r/g, '').trim()
-  if (!normalized) return { score: 0, grade: 'empty', warnings: ['No extracted text was returned.'], metrics: { characters: 0, alphanumericRatio: 0, repeatedLineRatio: 0 } }
+  if (!normalized) return { score: 0, grade: 'empty', warnings: ['Текст не извлечён.'], metrics: { characters: 0, alphanumericRatio: 0, repeatedLineRatio: 0 } }
 
   const chars = [...normalized]
   const alphanumeric = chars.filter(ch => /[\p{L}\p{N}]/u.test(ch)).length
@@ -15,17 +17,20 @@ export function assessExtractionQuality(text = '', sections = []) {
   const printableRatio = ratio(printable, chars.length)
   const repeatedLineRatio = ratio(repeatedLines, lines.length)
   const pageSections = (sections || []).filter(section => Number.isFinite(Number(section?.locator?.page)))
-  const unreadablePages = pageSections.filter(section => /\[No readable text\]/i.test(section.text || '')).length
+  // Пустая страница определяется по самой секции, а не по строке-маркеру:
+  // маркер «[No readable text]» искали здесь, но не выставляли нигде, и
+  // ветка была мёртвой — PDF со сканами получал оценку читаемого.
+  const unreadablePages = pageSections.filter(section => !String(section.text || '').trim()).length
 
   let score = 1
   const warnings = []
-  if (chars.length < 24) { score -= 0.35; warnings.push('Very little text was extracted.') }
-  if (alphanumericRatio < 0.45) { score -= 0.3; warnings.push('Low alphanumeric density may indicate noisy OCR.') }
-  if (printableRatio < 0.98) { score -= 0.2; warnings.push('Control characters were detected in the extraction.') }
-  if (repeatedLineRatio > 0.3) { score -= 0.2; warnings.push('Many repeated lines may indicate OCR duplication.') }
+  if (chars.length < 24) { score -= 0.35; warnings.push('Извлечено очень мало текста.') }
+  if (alphanumericRatio < 0.45) { score -= 0.3; warnings.push('Мало букв и цифр — возможно, распознавание зашумлено.') }
+  if (printableRatio < 0.98) { score -= 0.2; warnings.push('В извлечённом тексте есть управляющие символы.') }
+  if (repeatedLineRatio > 0.3) { score -= 0.2; warnings.push('Много повторяющихся строк — возможно, распознавание дублирует текст.') }
   if (pageSections.length && unreadablePages) {
     score -= Math.min(0.35, unreadablePages / pageSections.length * 0.35)
-    warnings.push(`${unreadablePages} page${unreadablePages === 1 ? '' : 's'} reported no readable text.`)
+    warnings.push(`${unreadablePages} ${pluralRu(unreadablePages, 'страница', 'страницы', 'страниц')} без читаемого текста.`)
   }
   score = Math.max(0, Math.min(1, score))
   const grade = score >= 0.85 ? 'strong' : score >= 0.65 ? 'usable' : score >= 0.4 ? 'review' : 'weak'

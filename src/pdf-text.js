@@ -38,7 +38,7 @@ export async function extractPdfText(arrayBuffer) {
       const page = await document.getPage(pageNumber)
       const content = await page.getTextContent({ includeMarkedContent: false })
       const text = joinTextItems(content.items)
-      sections.push({ label: `Page ${pageNumber}`, locator: { page: pageNumber }, text })
+      sections.push({ label: `Стр. ${pageNumber}`, locator: { page: pageNumber }, text })
       page.cleanup?.()
     }
   } finally {

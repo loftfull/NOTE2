@@ -53,7 +53,7 @@ test('a highly compressible entry is rejected once it passes its declared size',
   assert.ok(entry.compressedSize < 64 * 1024, 'fixture should be strongly compressible')
   await assert.rejects(
     () => extractZipEntry(bytes, entry),
-    /decompression limit/,
+    /превышает предел/,
     'an entry that expands past its declared size must be refused'
   )
 })
@@ -77,6 +77,6 @@ test('a truncated entry is refused before decompression', async () => {
   const { bytes, entry } = zipWithEntry('word/document.xml', raw)
   await assert.rejects(
     () => extractZipEntry(bytes.slice(0, bytes.length - 3), { ...entry }),
-    /Truncated ZIP entry/
+    /Запись ZIP обрезана/
   )
 })
