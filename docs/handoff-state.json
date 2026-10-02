@@ -1,0 +1,290 @@
+{
+  "snapshotAt": "2026-10-02T10:23:09.081Z",
+  "project": {
+    "name": "noteai-v3",
+    "version": "3.6.0",
+    "type": "module"
+  },
+  "git": {
+    "branch": "claude/independent-audit-note2-ra96a1",
+    "head": "f495a9f",
+    "headSubject": "Запись и видео тоже перестают быть пустой строкой: длительность и подписи из файла",
+    "clean": false,
+    "commitsOnBranch": 100
+  },
+  "runtime": {
+    "node": "v22.22.2"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capgo/capacitor-share-target": "8.0.48",
+    "dompurify": "^3.4.16",
+    "marked": "^18.0.14",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.1",
+    "vite": "^8.1.0"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server.mjs",
+    "test": "node --test",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npm run build && npx cap run android",
+    "android:prepare": "node scripts/prepare-android.mjs",
+    "e2e:import": "node tools/e2e/import.mjs",
+    "e2e:palette": "node tools/e2e/palette-check.mjs",
+    "e2e:motion": "node tools/e2e/motion.mjs",
+    "fixtures": "node tools/fixtures/make-containers.mjs test/fixtures/files",
+    "corpus:fetch": "node tools/corpus/fetch.mjs",
+    "corpus:probe": "node tools/corpus/probe.mjs"
+  },
+  "tests": {
+    "ran": true,
+    "total": 431,
+    "pass": 431,
+    "fail": 0,
+    "files": 32
+  },
+  "build": {
+    "ok": true
+  },
+  "code": {
+    "client": {
+      "files": 50,
+      "lines": 8693,
+      "largest": [
+        {
+          "file": "src/styles.css",
+          "lines": 2122
+        },
+        {
+          "file": "src/App.jsx",
+          "lines": 1278
+        },
+        {
+          "file": "src/audio-meta.js",
+          "lines": 478
+        },
+        {
+          "file": "src/ingest.js",
+          "lines": 320
+        },
+        {
+          "file": "src/media-meta.js",
+          "lines": 288
+        },
+        {
+          "file": "src/ModelManager.jsx",
+          "lines": 275
+        },
+        {
+          "file": "src/source-db.js",
+          "lines": 254
+        },
+        {
+          "file": "src/ai.js",
+          "lines": 244
+        },
+        {
+          "file": "src/archive-text.js",
+          "lines": 232
+        },
+        {
+          "file": "src/providers.js",
+          "lines": 226
+        },
+        {
+          "file": "src/structured-knowledge.js",
+          "lines": 174
+        },
+        {
+          "file": "src/models.js",
+          "lines": 141
+        }
+      ]
+    },
+    "server": {
+      "files": 15,
+      "lines": 2044,
+      "largest": [
+        {
+          "file": "server/routes/uploads.mjs",
+          "lines": 278
+        },
+        {
+          "file": "server/ssrf.mjs",
+          "lines": 277
+        },
+        {
+          "file": "server/routes/account.mjs",
+          "lines": 253
+        },
+        {
+          "file": "server/routes/instagram.mjs",
+          "lines": 166
+        },
+        {
+          "file": "server/upstream.mjs",
+          "lines": 150
+        },
+        {
+          "file": "server/routes/youtube.mjs",
+          "lines": 137
+        },
+        {
+          "file": "server/http.mjs",
+          "lines": 135
+        },
+        {
+          "file": "server/store.mjs",
+          "lines": 107
+        },
+        {
+          "file": "server/routes/media.mjs",
+          "lines": 105
+        },
+        {
+          "file": "server/throttle.mjs",
+          "lines": 91
+        },
+        {
+          "file": "server/config.mjs",
+          "lines": 81
+        },
+        {
+          "file": "server/routes/ai.mjs",
+          "lines": 79
+        }
+      ]
+    },
+    "tools": {
+      "files": 16,
+      "lines": 1536,
+      "largest": [
+        {
+          "file": "tools/fixtures/make-containers.mjs",
+          "lines": 222
+        },
+        {
+          "file": "tools/handoff/collect.mjs",
+          "lines": 137
+        },
+        {
+          "file": "tools/e2e/palette-check.mjs",
+          "lines": 135
+        },
+        {
+          "file": "tools/recover-v410-source.mjs",
+          "lines": 130
+        },
+        {
+          "file": "tools/model-conformance/server.mjs",
+          "lines": 129
+        },
+        {
+          "file": "tools/recover-v410-source.test.mjs",
+          "lines": 111
+        },
+        {
+          "file": "tools/e2e/import.mjs",
+          "lines": 99
+        },
+        {
+          "file": "tools/corpus/probe.mjs",
+          "lines": 95
+        },
+        {
+          "file": "tools/e2e/motion.mjs",
+          "lines": 95
+        },
+        {
+          "file": "tools/model-conformance/check.mjs",
+          "lines": 93
+        },
+        {
+          "file": "tools/fixtures/make-office.mjs",
+          "lines": 89
+        },
+        {
+          "file": "tools/publish-preview/prepare.mjs",
+          "lines": 84
+        }
+      ]
+    }
+  },
+  "storage": {
+    "localStorage": [
+      "noteai:v3:workspace",
+      "noteai:v3:settings"
+    ],
+    "indexedDb": {
+      "name": "noteai-sources",
+      "version": 3,
+      "stores": [
+        "sources",
+        "chunks",
+        "offlineAssets",
+        "jobs"
+      ],
+      "note": "схему менять только с миграцией — правило владельца"
+    }
+  },
+  "fixtures": {
+    "own": 14,
+    "ownBytes": 86802,
+    "corpus": "не в репозитории; node tools/corpus/fetch.mjs — 902 файла из наборов Pillow, mutagen, python-docx, moviepy"
+  },
+  "docs": [
+    "docs/APP_README_v4.10.md",
+    "docs/AUDIT_BRIEF_FOR_EXTERNAL_TEAM.md",
+    "docs/BASELINE_AUDIT.md",
+    "docs/FUNCTIONAL_STATUS_2026-09-15.md",
+    "docs/FUNCTIONAL_STATUS_2026-09-25.md",
+    "docs/GATEWAY.md",
+    "docs/GITHUB_SURVEY_INSTAGRAM_2026.md",
+    "docs/GITHUB_SURVEY_INTERACTION_V49.md",
+    "docs/GITHUB_SURVEY_STRUCTURED_KNOWLEDGE_V44.md",
+    "docs/GITHUB_SURVEY_UNIFIED_SOURCES_V45.md",
+    "docs/HANDOFF_2026-10-02.md",
+    "docs/INDEPENDENT_AUDIT_2026-09-14.md",
+    "docs/INSTAGRAM_KNOWLEDGE_LIBRARY_V43.md",
+    "docs/INSTAGRAM_LIBRARY_2026.md",
+    "docs/INSTAGRAM_REAL_CASES_V42.md",
+    "docs/LIBRARY_SURVEY_2026-09-26.md",
+    "docs/PRODUCT_ARCHITECTURE.md",
+    "docs/PRODUCT_DNA_2026.md",
+    "docs/PROJECT_BOUNDARY.md",
+    "docs/SOURCE_ADAPTERS.md",
+    "docs/STRUCTURED_INSTAGRAM_V44.md",
+    "docs/TYPOGRAPHY_FLAT_UI_V40.md",
+    "docs/UI_IMPLEMENTATION_DELTA_2026.md",
+    "docs/UI_RU_NOTEBOOK_V39.md",
+    "docs/UNIFIED_SOURCE_ARCHITECTURE_V45.md",
+    "docs/UX_ARCHITECTURE_2026.md",
+    "docs/UX_AUDIT_2026-09-15.md",
+    "docs/UX_AUDIT_2026-09-25.md",
+    "docs/V410_HOME_BLOCKS_HOTFIX.md",
+    "docs/V46_V40_BASELINE_RECOVERY.md",
+    "docs/V47_SOURCE_VIEWER_SHELL.md",
+    "docs/V48_DIRECT_CAPTURE_INTAKE.md",
+    "docs/V49_INTERACTIVE_APP_CONTRACT.md",
+    "docs/VISUAL_SYSTEM_IOS_GLASS_2026.md"
+  ],
+  "knownGaps": [
+    "APK не собирается в контейнере: Gradle-плагин тянется с dl.google.com, прокси отвечает 403",
+    "AVIF: размер кадра не читается (нужен обход боксов ISO BMFF)",
+    "WMA/ASF и голый ADTS-поток AAC: длительность не читается",
+    "AI не проверен на живой модели: адреса провайдеров закрыты сетью"
+  ]
+}

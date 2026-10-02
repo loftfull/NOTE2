@@ -2,6 +2,14 @@
 
 NOTE2 is the dedicated repository for the NoteAI project developed in this chat.
 
+> **Передаёте работу другому разработчику или другой модели?**
+> Начните с [`docs/HANDOFF_2026-10-02.md`](docs/HANDOFF_2026-10-02.md) —
+> самодостаточного описания: правила владельца, состояние с измеренными
+> цифрами, устройство кода, ограничения окружения, чем проверять и что
+> делать дальше. Машиночитаемый снимок рядом:
+> [`docs/handoff-state.json`](docs/handoff-state.json),
+> пересобирается `node tools/handoff/collect.mjs --save`.
+
 ## Запуск
 
 ```bash
