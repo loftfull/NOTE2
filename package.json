@@ -20,7 +20,9 @@
     "corpus:fetch": "node tools/corpus/fetch.mjs",
     "corpus:probe": "node tools/corpus/probe.mjs",
     "handoff:state": "node tools/handoff/collect.mjs --save",
-    "handoff:bundle": "node tools/handoff/bundle.mjs"
+    "handoff:bundle": "node tools/handoff/bundle.mjs",
+    "handoff:pack": "node tools/handoff/pack.mjs",
+    "handoff:pdf": "node tools/handoff/pdf.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
