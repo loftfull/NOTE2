@@ -3,6 +3,7 @@ import { extractPdfText } from './pdf-text.js'
 import { tokenize } from './ai.js'
 import { htmlTitle, htmlToText } from './html-text.js'
 import { cameraName, describeImageMeta, imageSize, readExif } from './media-meta.js'
+import { describeAudioMeta, readAudioMeta } from './audio-meta.js'
 
 const TEXT_EXTENSIONS = new Set([
   'txt','md','markdown','csv','tsv','json','jsonl','html','htm','xml','yaml','yml','log',
@@ -225,6 +226,23 @@ export async function parseLocalFile(file) {
         ...(meta.exif.orientation ? { orientation: meta.exif.orientation } : {}),
         ...(cameraName(meta.exif) ? { camera: cameraName(meta.exif) } : {}),
       },
+      error: parserHint,
+    }
+  }
+
+  // Запись и видео — та же история, что со снимком: без сервиса расшифровки
+  // оставалась строка с именем файла. Длительность и подписи лежат в
+  // заголовке; расшифровку по-прежнему делает только сервис.
+  if (kind === 'audio' || kind === 'video') {
+    const meta = await readAudioMeta(file)
+    const text = describeAudioMeta(meta, kind)
+    return {
+      ...base,
+      status: 'needs-connector',
+      text,
+      wordCount: text ? tokenize(text).length : 0,
+      charCount: text.length,
+      meta,
       error: parserHint,
     }
   }
