@@ -490,7 +490,7 @@ function CaptureSheet({open,onClose,newNote,navigate,onFiles,onLink}){
     <input ref={imageRef} className="hiddenFile" type="file" accept="image/*" multiple onChange={chosen}/>
     <input ref={videoRef} className="hiddenFile" type="file" accept="video/*" multiple onChange={chosen}/>
     <input ref={audioRef} className="hiddenFile" type="file" accept="audio/*" multiple onChange={chosen}/>
-    <input ref={fileRef} className="hiddenFile" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.ods,.odp,.epub,.txt,.md,.csv,.json,.html,.htm,.xml,.yaml,.yml,text/*,application/pdf" multiple onChange={chosen}/>
+    <input ref={fileRef} className="hiddenFile" type="file" accept=".pdf,.docx,.pptx,.xlsx,.odt,.ods,.odp,.epub,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.svg,text/*,application/pdf,image/svg+xml" multiple onChange={chosen}/>
     <p className="tiny subtle captureHint">После выбора файл сразу попадает в «Источники». Распознавание, расшифровка и индексация запускаются сами.</p>
   </section></div>
 }
@@ -709,17 +709,24 @@ function Analysis({settings,workspace,setWorkspace,openEditor,capturePayload,cle
     const picked=[...(files||[])]
     if(!picked.length)return
     setBusy(true);setMessage('')
-    let ready=0,needs=0,vectors=0
+    let ready=0,needs=0,blank=0,vectors=0
     try{
       for(const file of picked){
         let source=await parseLocalFile(file)
         if(['image','audio','video'].includes(source.kind)||(source.kind==='pdf'&&source.status==='needs-ocr')) source=await enrichWithConnector(file,source)
         const indexed=await indexSourceRecord(source,settings)
         if(indexed.indexMode==='vector')vectors+=1
-        source.status==='ready'?ready++:needs++
+        // Пустой документ — не отказ: повторять нечего, в нём просто нет
+        // текста. Раньше он попадал в «ждёт коннектор или повтор» вместе с
+        // форматами, которым коннектор действительно нужен. На настоящих
+        // файлах Word это каждый третий: 16 из 47 документов из набора
+        // python-docx не содержат ни одного текстового узла.
+        if(source.status==='ready')ready++
+        else if(source.status==='empty')blank++
+        else needs++
       }
       await refresh()
-      setMessage(`${sourcesLabel(picked.length)} ${pluralRu(picked.length,'добавлен','добавлены','добавлены')} · ${ready} ${pluralRu(ready,'доступен','доступны','доступны')} для поиска${vectors?` · ${vectors} с векторным индексом`:''}${needs?` · ${needs} ${pluralRu(needs,'ждёт','ждут','ждут')} коннектор или повтор`:''}`)
+      setMessage(`${sourcesLabel(picked.length)} ${pluralRu(picked.length,'добавлен','добавлены','добавлены')} · ${ready} ${pluralRu(ready,'доступен','доступны','доступны')} для поиска${vectors?` · ${vectors} с векторным индексом`:''}${blank?` · ${blank} без текста`:''}${needs?` · ${needs} ${pluralRu(needs,'ждёт','ждут','ждут')} коннектор или повтор`:''}`)
     }catch(err){setMessage(err.message)}finally{setBusy(false);if(fileRef.current)fileRef.current.value=''}
   }
 

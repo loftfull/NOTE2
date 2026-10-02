@@ -10,3 +10,4 @@ data/
 
 # Сборка стенда проверки PDF
 .probe-dist/
+tools/corpus/files/

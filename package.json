@@ -16,7 +16,9 @@
     "e2e:import": "node tools/e2e/import.mjs",
     "e2e:palette": "node tools/e2e/palette-check.mjs",
     "e2e:motion": "node tools/e2e/motion.mjs",
-    "fixtures": "node tools/fixtures/make-containers.mjs test/fixtures/files"
+    "fixtures": "node tools/fixtures/make-containers.mjs test/fixtures/files",
+    "corpus:fetch": "node tools/corpus/fetch.mjs",
+    "corpus:probe": "node tools/corpus/probe.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

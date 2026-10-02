@@ -61,6 +61,11 @@ export function htmlTitle(html = '') {
 
 // Elements whose content is code or presentation, never prose.
 const DROPPED = ['script', 'style', 'noscript', 'template', 'svg', 'canvas', 'iframe', 'object', 'embed', 'head']
+// Внутри страницы <svg> — картинка, и её содержимое в текст не идёт. Но
+// когда разбирается сам файл .svg, выбрасывать его корень означает выбросить
+// весь документ: подписи живут в <title>, <desc> и <text>.
+const DROPPED_IN_SVG = DROPPED.filter(tag => tag !== 'svg').concat('defs', 'metadata')
+const SVG_BLOCKS = ['title', 'desc', 'text', 'tspan', 'textPath']
 // Elements that end a line of prose.
 const BLOCKS = [
   'p', 'div', 'section', 'article', 'header', 'footer', 'aside', 'main', 'nav',
@@ -68,15 +73,22 @@ const BLOCKS = [
   'figcaption', 'dt', 'dd', 'td', 'th', 'ul', 'ol', 'table', 'form', 'fieldset'
 ]
 
-/** Readable text with paragraph boundaries preserved as blank lines. */
-export function htmlToText(html = '') {
+/**
+ * Readable text with paragraph boundaries preserved as blank lines.
+ *
+ * @param options.svg Разбирается сам файл .svg, а не страница с картинкой:
+ *   корень <svg> сохраняется, а <title>, <desc> и <text> считаются блоками.
+ */
+export function htmlToText(html = '', options = {}) {
+  const dropped = options.svg ? DROPPED_IN_SVG : DROPPED
+  const blocks = options.svg ? BLOCKS.concat(SVG_BLOCKS) : BLOCKS
   let text = String(html)
 
   // Comments first: a comment can contain anything, including tags.
   text = text.replace(/<!--[\s\S]*?-->/g, ' ')
   text = text.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, ' ')
 
-  for (const tag of DROPPED) {
+  for (const tag of dropped) {
     text = text.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}\\s*>`, 'gi'), ' ')
     // An unclosed dropped tag would otherwise leak its body into the output.
     text = text.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*$`, 'i'), ' ')
@@ -84,7 +96,7 @@ export function htmlToText(html = '') {
 
   text = text.replace(/<br\b[^>]*>/gi, '\n')
   text = text.replace(/<hr\b[^>]*>/gi, '\n\n')
-  for (const tag of BLOCKS) {
+  for (const tag of blocks) {
     text = text.replace(new RegExp(`</?${tag}\\b[^>]*>`, 'gi'), '\n\n')
   }
 
