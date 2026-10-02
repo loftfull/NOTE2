@@ -22,7 +22,8 @@
     "handoff:state": "node tools/handoff/collect.mjs --save",
     "handoff:bundle": "node tools/handoff/bundle.mjs",
     "handoff:pack": "node tools/handoff/pack.mjs",
-    "handoff:pdf": "node tools/handoff/pdf.mjs"
+    "handoff:pdf": "node tools/handoff/pdf.mjs",
+    "handoff:images": "node tools/handoff/images.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
