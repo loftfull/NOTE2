@@ -18,7 +18,9 @@
     "e2e:motion": "node tools/e2e/motion.mjs",
     "fixtures": "node tools/fixtures/make-containers.mjs test/fixtures/files",
     "corpus:fetch": "node tools/corpus/fetch.mjs",
-    "corpus:probe": "node tools/corpus/probe.mjs"
+    "corpus:probe": "node tools/corpus/probe.mjs",
+    "handoff:state": "node tools/handoff/collect.mjs --save",
+    "handoff:bundle": "node tools/handoff/bundle.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

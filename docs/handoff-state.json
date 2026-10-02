@@ -1,5 +1,5 @@
 {
-  "snapshotAt": "2026-10-02T10:23:09.081Z",
+  "snapshotAt": "2026-10-02T10:27:34.387Z",
   "project": {
     "name": "noteai-v3",
     "version": "3.6.0",
@@ -7,10 +7,10 @@
   },
   "git": {
     "branch": "claude/independent-audit-note2-ra96a1",
-    "head": "f495a9f",
-    "headSubject": "Запись и видео тоже перестают быть пустой строкой: длительность и подписи из файла",
+    "head": "f94cd25",
+    "headSubject": "Передача работы: самодостаточное описание проекта и машиночитаемый снимок",
     "clean": false,
-    "commitsOnBranch": 100
+    "commitsOnBranch": 101
   },
   "runtime": {
     "node": "v22.22.2"
@@ -47,7 +47,9 @@
     "e2e:motion": "node tools/e2e/motion.mjs",
     "fixtures": "node tools/fixtures/make-containers.mjs test/fixtures/files",
     "corpus:fetch": "node tools/corpus/fetch.mjs",
-    "corpus:probe": "node tools/corpus/probe.mjs"
+    "corpus:probe": "node tools/corpus/probe.mjs",
+    "handoff:state": "node tools/handoff/collect.mjs --save",
+    "handoff:bundle": "node tools/handoff/bundle.mjs"
   },
   "tests": {
     "ran": true,
@@ -169,8 +171,8 @@
       ]
     },
     "tools": {
-      "files": 16,
-      "lines": 1536,
+      "files": 17,
+      "lines": 1620,
       "largest": [
         {
           "file": "tools/fixtures/make-containers.mjs",
@@ -217,7 +219,7 @@
           "lines": 89
         },
         {
-          "file": "tools/publish-preview/prepare.mjs",
+          "file": "tools/handoff/bundle.mjs",
           "lines": 84
         }
       ]
@@ -257,6 +259,7 @@
     "docs/GITHUB_SURVEY_STRUCTURED_KNOWLEDGE_V44.md",
     "docs/GITHUB_SURVEY_UNIFIED_SOURCES_V45.md",
     "docs/HANDOFF_2026-10-02.md",
+    "docs/HANDOFF_PROMPT.md",
     "docs/INDEPENDENT_AUDIT_2026-09-14.md",
     "docs/INSTAGRAM_KNOWLEDGE_LIBRARY_V43.md",
     "docs/INSTAGRAM_LIBRARY_2026.md",
