@@ -70,8 +70,10 @@ test('PNG принимается как источник, но помечает�
   const source = await parse('snimok.png')
   assert.equal(source.kind, 'image')
   assert.equal(source.status, 'needs-connector')
-  assert.equal(source.text, '')
-  // Главное: пустой текст не выдаётся за разобранный.
+  // Текст есть, но это технические сведения из заголовка файла, а не
+  // распознанное содержимое: статус об этом говорит прямо.
+  assert.equal(source.text, 'Изображение 240×120')
+  assert.deepEqual(source.meta, { width: 240, height: 120 })
   assert.match(source.error, /расшифровка и распознавание/)
 })
 

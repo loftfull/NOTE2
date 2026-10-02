@@ -2,6 +2,7 @@ import { extractArchiveText } from './archive-text.js'
 import { extractPdfText } from './pdf-text.js'
 import { tokenize } from './ai.js'
 import { htmlTitle, htmlToText } from './html-text.js'
+import { cameraName, describeImageMeta, imageSize, readExif } from './media-meta.js'
 
 const TEXT_EXTENSIONS = new Set([
   'txt','md','markdown','csv','tsv','json','jsonl','html','htm','xml','yaml','yml','log',
@@ -205,8 +206,46 @@ export async function parseLocalFile(file) {
     ? 'Файл принят как источник, но расшифровка и распознавание идут через внешний сервис — укажите его в Профиле.'
     : 'Для этого двоичного формата нужен отдельный коннектор: на устройстве он не разбирается.'
 
+  // Снимок без сервиса распознавания оставался пустой записью: ни текста,
+  // ни одного факта для поиска. Размер кадра, дата съёмки и камера лежат в
+  // заголовке файла — это технические сведения, а не описание, и статус
+  // остаётся needs-connector: текста на снимке по-прежнему никто не читал.
+  if (kind === 'image') {
+    const meta = await readImageMeta(file)
+    const text = describeImageMeta(meta.size, meta.exif)
+    return {
+      ...base,
+      status: 'needs-connector',
+      text,
+      wordCount: text ? tokenize(text).length : 0,
+      charCount: text.length,
+      meta: {
+        ...(meta.size || {}),
+        ...(meta.exif.dateTime ? { dateTime: meta.exif.dateTime } : {}),
+        ...(meta.exif.orientation ? { orientation: meta.exif.orientation } : {}),
+        ...(cameraName(meta.exif) ? { camera: cameraName(meta.exif) } : {}),
+      },
+      error: parserHint,
+    }
+  }
+
   return { ...base, status: 'needs-connector', text: '', wordCount: 0, charCount: 0, error: parserHint }
 }
+
+// Сколько головы файла читать ради заголовка. EXIF с миниатюрой и профилем
+// ICC занимает сотни килобайт, и маркер SOF у JPEG идёт уже после них;
+// гигабайтный скан при этом в память поднимать незачем.
+const META_HEAD_BYTES = 2 * 1024 * 1024
+
+async function readImageMeta(file) {
+  try {
+    const head = new Uint8Array(await file.slice(0, META_HEAD_BYTES).arrayBuffer())
+    return { size: imageSize(head), exif: readExif(head) }
+  } catch {
+    return { size: null, exif: {} }
+  }
+}
+
 
 export function chunkSections(sections = [], options = {}) {
   let index = 0
