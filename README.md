@@ -1,77 +1,162 @@
-# NOTE2
+# NoteAI v3.6 — Secure Sessions & Durable Workers
 
-NOTE2 is the dedicated repository for the NoteAI project developed in this chat.
+NoteAI is a local-first notebook and multimodal evidence workspace. Notes, documents, web pages, images, scanned PDFs, audio/video and YouTube captions are normalized into one Source Vault, searched through lexical/vector retrieval, and used for provenance-backed answers with clickable evidence.
 
-## Verified source of truth
+v3.6 deliberately concentrates on reliability and deployment security rather than adding another set of UI features. New workspaces start empty: NoteAI no longer auto-populates fake seed notes or tasks.
 
-The project source is **NoteAI**, not `BlockNoteAI` / Shadow Knowledge AI.
+## What v3.6 adds
 
-The verified import package is:
+### Durable server-side media worker queue
 
-- `NoteAI-v3.7-verified-source.zip`
-- SHA-256: `faf8695578a1fc613e63325001dafbfcdb02c1f9b565c4692e027e2799ec0bee`
-- package name: `noteai-v3`
-- package version reported by the source: `3.6.0`
-- frontend: React 19 + Vite 8
-- local-first data layer: IndexedDB Source Vault + local workspace/settings storage
-- gateway/runtime: Node.js `server.mjs`
-- multimodal ingestion: PDF, Office/archive formats, EPUB, images/OCR, audio/video transcription, URLs and YouTube captions
-- retrieval: lexical/vector RAG with source locators and clickable evidence
-- large media: resumable upload + FFmpeg segmentation + durable single-node queue
-- account/device sessions and checkpoint sync
-- deployment: Docker + Render profile
-- Android: Capacitor 8 preparation path + Android Keystore credential bridge
+Large media no longer depends on one HTTP request staying alive until transcription finishes.
 
-The originally recovered `NoteAI-v3.7-build-candidate.zip` was not imported because verification exposed one missing source file: `native/android/SecureCredentialsPlugin.java`. The verified package restores that file and passes the existing regression suite **39/39** before import.
+- resumable browser upload sessions persist on the gateway disk;
+- completed uploads enter a FIFO `queued` state;
+- the gateway starts at most `MAX_LARGE_MEDIA_TASKS` heavy jobs at once;
+- additional jobs remain accepted and queued instead of returning capacity `429` errors;
+- queue state survives a gateway restart because it lives in each upload session `meta.json`;
+- interrupted `processing` sessions with all chunks intact are recovered to `queued` on startup;
+- FFmpeg reconstructs the original media, extracts audio and performs time-based segmentation;
+- segment timestamps are rebased into one continuous evidence timeline;
+- SIGTERM stops new work and gives active tasks a bounded shutdown window;
+- stale upload sessions are removed by TTL cleanup.
 
-No other GitHub repository is considered part of NOTE2 unless its provenance is explicitly verified against this project.
+This is a durable single-node disk queue, not a distributed message broker. The current Render profile intentionally runs one persistent-disk instance.
 
-## Project boundary rule
+### Account and per-device sessions
 
-Before any external repository, branch or codebase may be imported, all of these must be verified:
+The old v3.5 shared checkpoint token remains available only as a migration/legacy mode. v3.6 adds a separate self-hosted account layer:
 
-1. exact repository identity;
-2. branch identity;
-3. README/package/runtime stack;
-4. commit ancestry or explicit user confirmation;
-5. feature ownership relative to NOTE2;
-6. no destructive mirror/push operation across unrelated repositories.
+- registration can be closed completely by leaving `REGISTRATION_TOKEN` unset;
+- passwords are stored as salted `scrypt` derivation records, never plaintext;
+- login issues a different random session credential to every browser/device;
+- only a SHA-256 hash of the session secret is persisted server-side;
+- sessions expire, can be listed and revoked individually;
+- `ACCOUNT_MAX_SESSIONS` limits the number of active device sessions per account;
+- repeated failed logins are throttled per client/email pair with `429` + `Retry-After`;
+- account workspace checkpoints are isolated by account id;
+- Push uses a monotonic revision guard, so stale devices receive `409 revision_conflict` instead of silently overwriting newer data.
 
-Similarity of topic, naming or technology is **not** evidence of project identity.
+### Protected AI/ingestion gateway
 
-See [`docs/PROJECT_BOUNDARY.md`](docs/PROJECT_BOUNDARY.md).
+With `REQUIRE_ACCOUNT_AUTH=true`, these cost-bearing/private routes require a valid device session:
 
-## Product direction
-
-NOTE2 remains a universal local-first evidence notebook and media/document analyzer:
-
-- notes and documents;
-- PDF and scanned PDF;
-- DOCX / PPTX / XLSX / ODT / ODS / ODP;
-- EPUB;
-- images and OCR/vision;
-- audio/video transcription with timestamps/speakers;
-- YouTube captions when genuinely available;
-- URL ingestion with SSRF protection;
-- grounded analysis and evidence citations;
-- reusable Source Vault and search;
-- Android/PWA/mobile delivery.
-
-## Current repository state
-
-`main` contains only the NOTE2 project boundary, architecture documents and the guarded verified-import tool. The application source is imported into a dedicated branch first; it is not copied from any other GitHub repository.
-
-Safe import command after downloading the verified ZIP:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\import-verified-noteai.ps1 -ZipPath "C:\path\to\NoteAI-v3.7-verified-source.zip"
+```text
+/api/ai
+/api/embed
+/api/source-url
+/api/vision
+/api/transcribe
+/api/youtube
+/api/uploads/*
 ```
 
-The guard checks the exact ZIP SHA-256, exact `loftfull/NOTE2` origin, clean `main`, required source files and `npm test` before it creates/pushes `import/noteai-v3.7-verified`.
+The browser attaches the account bearer only when the connector origin matches the configured account gateway origin. A third-party connector URL therefore does not automatically receive the NoteAI session credential.
 
-## Next implementation step
+URL ingestion now follows the configured AI gateway origin as well. This fixes the native Android case where `/api/source-url` cannot assume the packaged app and the Node gateway share an origin.
 
-1. Import the verified NoteAI snapshot into `import/noteai-v3.7-verified`.
-2. Re-run regression suite and build gates from that branch.
-3. Compare imported tree against the verified source manifest.
-4. Only after the baseline is reproduced, continue with bounded SourceAdapter / analysis-graph evolution.
+### Android secure credential bridge
+
+`native/android/SecureCredentialsPlugin.java` is installed automatically by `npm run android:prepare`.
+
+- a 256-bit AES key is created inside `AndroidKeyStore`;
+- the key is not written to JavaScript storage;
+- the session credential is encrypted with AES-GCM before being stored in app-private SharedPreferences;
+- Android backup is disabled for the app to avoid copying encrypted credential blobs across devices without their Keystore key;
+- web/PWA fallback uses `sessionStorage`, not localStorage, so the credential is removed with the browser session;
+- JSON backup and cloud workspace snapshots never contain the account session credential.
+
+See `SECURITY.md` for the exact trust boundary and current limitations.
+
+### Account checkpoint sync
+
+Account sync is explicit checkpoint sync, not live collaborative CRDT sync:
+
+```text
+GET /api/account/sync/:workspaceId
+PUT /api/account/sync/:workspaceId
+```
+
+Pull replaces the local workspace and Source Vault metadata/chunks only after user confirmation. Local queued media Blobs remain on the originating device. Remote snapshots are server-readable and are **not end-to-end encrypted** in v3.6.
+
+### Deployment profile
+
+The repository contains:
+
+```text
+Dockerfile
+render.yaml
+DEPLOY.md
+SECURITY.md
+```
+
+The Docker runtime installs FFmpeg/ffprobe, serves the built Vite client through the same Node gateway, and keeps account/session/sync/upload state on the configured persistent data volume.
+
+## Source and evidence pipeline
+
+Current ingestion includes:
+
+- TXT / Markdown / CSV / JSON / HTML / XML / YAML / source code;
+- DOCX / PPTX / XLSX;
+- ODT / ODS / ODP;
+- EPUB;
+- page-aware PDF text extraction;
+- vision/OCR fallback for images and scanned PDFs;
+- audio/video transcription with timestamp/speaker evidence;
+- public YouTube caption ingestion when captions are actually retrievable;
+- URL ingestion with private-network/SSRF protection.
+
+Evidence chunks keep source ids and locators. Clicking `[S#]` can reopen a PDF page, local media timestamp, YouTube timestamp, imported text excerpt or original web source.
+
+## Local development
+
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Production-style local server:
+
+```bash
+npm run build
+npm start
+```
+
+### Minimum production secrets
+
+```text
+OPENAI_API_KEY=<server-side key>
+REGISTRATION_TOKEN=<long random bootstrap secret>
+REQUIRE_ACCOUNT_AUTH=true
+CORS_ORIGINS=https://your-web-app.example,https://localhost
+```
+
+After owner accounts have been created, remove/clear `REGISTRATION_TOKEN` to close self-registration. Keep the account/auth and sync directories on persistent storage.
+
+## Android
+
+```bash
+npm install
+npm run android:prepare
+cd android
+./gradlew assembleDebug
+```
+
+`android:prepare` builds the web client, creates/syncs the Capacitor Android platform, applies SDK/Java/permission patches, installs the Keystore credential plugin and disables Android backup. See `ANDROID.md`.
+
+## QA status
+
+Current source-level/integration regression result:
+
+```text
+39 tests
+39 passed
+0 failed
+```
+
+The test suite includes real FFmpeg segmentation, resumable/restart recovery, FIFO worker draining, account registration/login/revoke, account sync conflicts, login throttling/session caps, SSRF protection, Android credential bridge checks, Office extraction, RAG provenance and backup compatibility.
+
+`node_modules` cannot currently be installed in the execution environment because npm registry DNS/network resolution is unavailable. Therefore `npm run build`, generated `android/`, Gradle build and a physical APK/device run are **not claimed as passed** in this release.
+
+See `QA-v3.6.md` for the release gate matrix.

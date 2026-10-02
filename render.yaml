@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: noteai-gateway
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 120
+    autoDeployTrigger: commit
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SYNC_TOKEN
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com/v1
+      - key: LARGE_MEDIA_ROOT
+        value: /var/data/uploads
+      - key: SYNC_ROOT
+        value: /var/data/sync
+      - key: AUTH_ROOT
+        value: /var/data/auth
+      - key: ACCOUNT_SYNC_ROOT
+        value: /var/data/account-sync
+      - key: INSTAGRAM_ROOT
+        value: /var/data/instagram
+      - key: MAX_INSTAGRAM_ITEMS
+        value: "20"
+      - key: MAX_INSTAGRAM_ITEM_BYTES
+        value: "100000000"
+      - key: REGISTRATION_TOKEN
+        sync: false
+      - key: REQUIRE_ACCOUNT_AUTH
+        value: "true"
+      - key: ACCOUNT_SESSION_TTL_DAYS
+        value: "30"
+      - key: ACCOUNT_MAX_SESSIONS
+        value: "12"
+      - key: LOGIN_MAX_FAILURES
+        value: "8"
+      - key: LOGIN_WINDOW_MS
+        value: "300000"
+      - key: MAX_LARGE_MEDIA_BYTES
+        value: "2000000000"
+      - key: UPLOAD_CHUNK_BYTES
+        value: "6291456"
+      - key: MEDIA_SEGMENT_SECONDS
+        value: "600"
+      - key: LARGE_MEDIA_TTL_HOURS
+        value: "24"
+      - key: MAX_LARGE_MEDIA_TASKS
+        value: "2"
+      - key: MAX_SYNC_BYTES
+        value: "20000000"
+    disk:
+      name: noteai-data
+      mountPath: /var/data
+      sizeGB: 10

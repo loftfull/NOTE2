@@ -1,0 +1,10 @@
+node_modules
+android
+dist
+data
+.git
+.gitignore
+*.zip
+*.log
+.env
+QA-*.md

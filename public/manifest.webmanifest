@@ -1,0 +1,19 @@
+{
+  "name": "NoteAI v3.6",
+  "short_name": "NoteAI",
+  "description": "Local-first multimodal evidence workspace with durable media workers and per-device account sessions.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fb",
+  "theme_color": "#3755c3",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/noteai-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
