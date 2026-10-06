@@ -75,3 +75,7 @@ The guard checks the exact ZIP SHA-256, exact `loftfull/NOTE2` origin, clean `ma
 2. Re-run regression suite and build gates from that branch.
 3. Compare imported tree against the verified source manifest.
 4. Only after the baseline is reproduced, continue with bounded SourceAdapter / analysis-graph evolution.
+
+## Source and integration status
+
+The default branch currently contains starter/configuration material. Existing source implementations and their integration gates are listed in [source status](.github/SOURCE_STATUS.md). A source candidate is not a verified release.
